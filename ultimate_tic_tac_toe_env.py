@@ -100,17 +100,21 @@ class UltimateTicTacToeEnvironment(GeneralEnvironment):
 
     def render(self):
         symbols = {0: " ", self.current_player: "X", -self.current_player: "O"}
-        for big_row in range(3):
-            rows = []
-            for small_row in range(3):
-                cells = []
-                for big_col in range(3):
-                    for small_col in range(3):
-                        cell_value = self.board[big_row * 3 + big_col][small_row * 3 + small_col]
-                        cells.append(f" {symbols[cell_value]} ")
-                    if big_col < 2:
-                        cells.append("|")
-                rows.append("".join(cells))
-            print("\n".join(rows))
-            if big_row < 2:
-                print("-" * 11)
+        local_sep = "---+---+---"
+        meta_sep = local_sep + "||" + local_sep + "||" + local_sep
+
+        rows = []
+        for meta_row in range(3):
+            for local_row in range(3):
+                parts = []
+                for meta_col in range(3):
+                    board_index = meta_row * 3 + meta_col
+                    cells = [f" {symbols[self.board[board_index][local_row * 3 + col]]} " for col in range(3)]
+                    parts.append("|".join(cells))
+                rows.append("||".join(parts))
+                if local_row < 2:
+                    rows.append(meta_sep)
+            if meta_row < 2:
+                rows.append(meta_sep.replace("-", "="))
+
+        print("\n".join(rows))
