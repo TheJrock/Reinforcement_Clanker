@@ -1,4 +1,4 @@
-from clanker import Clanker
+from clanker import TableClanker
 from tic_tac_toe_env import TicTacToeEnvironment
 
 EVAL_EPISODES = 1
@@ -6,7 +6,7 @@ TRAIN_EPISODES = 100000
 
 def main():
     env = TicTacToeEnvironment()
-    agent = Clanker()
+    agent = TableClanker()
     agent.train(env, episodes=TRAIN_EPISODES)
     counts = agent.evaluate(env, opponent=agent, episodes=EVAL_EPISODES, verbose=True)
     print(counts)

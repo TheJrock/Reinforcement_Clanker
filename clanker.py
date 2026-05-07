@@ -1,6 +1,8 @@
 import random
 import torch
 import torch.nn as nn
+import collections
+import json
 from abc import ABC, abstractmethod
 
 class Clanker(ABC):
@@ -115,28 +117,72 @@ class TableClanker(Clanker):
         current_q = self.q_table.get(state, {}).get(action, 0.0)
         self.q_table.setdefault(state, {})[action] = current_q + self.alpha * (target - current_q)
 
-
     def save(self, path):
-        pass
+        serializable = {str(state): actions for state, actions in self.q_table.items()}
+        with open(path, 'w') as f:
+            json.dump(serializable, f)
 
     def load(self, path):
-        pass
+        with open(path, 'r') as f:
+            data = json.load(f)
+        self.q_table = {tuple(int(x) for x in state[1:-1].split(', ')): {int(a): v for a, v in actions.items()} for state, actions in data.items()}
 
 class DeepClanker(Clanker):
-    def __init__(self, epsilon=1.0, alpha=0.1, gamma=0.99, epsilon_min=0.01, epsilon_decay=0.99999):
+    def __init__(self, input_size, output_size, hidden_layers=[128, 128], batch_size=32, update_freq=100, min_replay_size=None, epsilon=1.0, alpha=0.1, gamma=0.99, epsilon_min=0.01, epsilon_decay=0.99999):
         super().__init__(epsilon, alpha, gamma, epsilon_min, epsilon_decay)
-        # Placeholder for neural network initialization
+        self.network = HoloNet(input_size, output_size, hidden_layers)
+        self.target_network = HoloNet(input_size, output_size, hidden_layers)
+        self.target_network.load_state_dict(self.network.state_dict())
+        self.optimizer = torch.optim.Adam(self.network.parameters(), lr=alpha)
+        self.loss_fn = nn.MSELoss()
+        self.replay_buffer = collections.deque(maxlen=10000)
+        self.steps = 0
+        self.batch_size = batch_size
+        self.update_freq = update_freq
+        self.min_replay_size = min_replay_size or batch_size
 
     def get_best_action(self, state, legal_actions):
-        # Placeholder for neural network action selection
-        return random.choice(legal_actions)
+        q_values = self.network.forward(torch.tensor(state, dtype=torch.float32))
+        best_action = max(legal_actions, key=lambda action: q_values[action].item())
+        return best_action
 
     def learn(self, state, action, reward, next_state, done):
-        # Placeholder for neural network training
-        pass
+        self.replay_buffer.append((state, action, reward, next_state, done))
+        if len(self.replay_buffer) < self.min_replay_size:
+            return
+        batch = random.sample(self.replay_buffer, self.batch_size)
+        states, actions, rewards, next_states, dones = zip(*batch)
+        states = torch.tensor(states, dtype=torch.float32)
+        actions = torch.tensor(actions, dtype=torch.int64)
+        rewards = torch.tensor(rewards, dtype=torch.float32)
+        next_states = torch.tensor(next_states, dtype=torch.float32)
+        dones = torch.tensor(dones, dtype=torch.float32)
+        with torch.no_grad():
+            max_next_q = self.target_network(next_states).max(dim=1).values
+            targets = rewards + self.gamma * (-max_next_q) * (1 - dones)
+        predicted_q = self.network(states).gather(1, actions.unsqueeze(1)).squeeze(1)
+        loss = self.loss_fn(predicted_q, targets)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+        self.steps += 1
+        if self.steps % self.update_freq == 0:
+            self.target_network.load_state_dict(self.network.state_dict())
 
     def save(self, path):
-        pass
+        torch.save(self.network.state_dict(), path)
 
     def load(self, path):
-        pass
+        self.network.load_state_dict(torch.load(path))
+        self.target_network.load_state_dict(self.network.state_dict())
+
+class HoloNet(nn.Module):
+    def __init__(self, input_size, output_size, hidden_layers=[128, 128]):
+        super(HoloNet, self).__init__()
+        sizes = [input_size] + hidden_layers + [output_size]
+        self.layers = nn.ModuleList([nn.Linear(sizes[i], sizes[i+1]) for i in range(len(sizes)-1)])
+
+    def forward(self, x):
+        for layer in self.layers[:-1]:
+            x = torch.relu(layer(x))
+        return self.layers[-1](x)
