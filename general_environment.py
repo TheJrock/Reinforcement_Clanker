@@ -19,7 +19,7 @@ class GeneralEnvironment(ABC):
         pass
 
     @abstractmethod
-    def is_terminal(self):
+    def is_local_terminal(self):
         """Return True if the game is over."""
         pass
 

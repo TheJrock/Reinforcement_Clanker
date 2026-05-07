@@ -2,6 +2,12 @@ from general_environment import GeneralEnvironment
 
 class TicTacToeEnvironment(GeneralEnvironment):
 
+    WIN_LINES = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6]
+    ]
+
     def __init__(self):
         self.board = [0] * 9
         self.current_player = 1
@@ -16,7 +22,7 @@ class TicTacToeEnvironment(GeneralEnvironment):
             raise ValueError("Invalid action: Cell is already occupied")
 
         self.board[action] = 1
-        done = self.is_terminal()
+        done = self.is_local_terminal()
         reward = 0
 
         if done:
@@ -33,10 +39,9 @@ class TicTacToeEnvironment(GeneralEnvironment):
     def get_legal_actions(self):
         return [i for i in range(9) if self.board[i] == 0]
 
-    def is_terminal(self):
-        lines = self._get_board_lines()
-        for line in lines:
-            if line[0] != 0 and line[0] == line[1] == line[2]:
+    def is_local_terminal(self):
+        for line in self.WIN_LINES:
+            if self.board[line[0]] != 0 and self.board[line[0]] == self.board[line[1]] == self.board[line[2]]:
                 return True
 
         return all(cell != 0 for cell in self.board)
@@ -51,22 +56,9 @@ class TicTacToeEnvironment(GeneralEnvironment):
         print()
 
     def get_result(self):
-        if not self.is_terminal():
+        if not self.is_local_terminal():
             raise ValueError("Game is not over yet")
-        lines = self._get_board_lines()
-        for line in lines:
-            if line[0] != 0 and line[0] == line[1] == line[2]:
+        for line in self.WIN_LINES:
+            if self.board[line[0]] != 0 and self.board[line[0]] == self.board[line[1]] == self.board[line[2]]:
                 return 1
         return 0
-
-    def _get_board_lines(self):
-        return [
-            [self.board[0], self.board[1], self.board[2]],
-            [self.board[3], self.board[4], self.board[5]],
-            [self.board[6], self.board[7], self.board[8]],
-            [self.board[0], self.board[3], self.board[6]],
-            [self.board[1], self.board[4], self.board[7]],
-            [self.board[2], self.board[5], self.board[8]],
-            [self.board[0], self.board[4], self.board[8]],
-            [self.board[2], self.board[4], self.board[6]],
-        ]
