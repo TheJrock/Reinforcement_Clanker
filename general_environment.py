@@ -19,16 +19,16 @@ class GeneralEnvironment(ABC):
         pass
 
     @abstractmethod
-    def is_local_terminal(self):
+    def is_terminal(self):
         """Return True if the game is over."""
-        pass
-
-    @abstractmethod
-    def render(self):
-        """Display the current board state."""
         pass
 
     @abstractmethod
     def get_result(self):
         """Return the result of a terminal state: 1 for win, -1 for loss, 0 for draw. Should only be called when is_terminal() is True."""
+        pass
+    
+    @abstractmethod
+    def render(self):
+        """Display the current board state."""
         pass

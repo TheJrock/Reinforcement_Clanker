@@ -37,7 +37,7 @@ class UltimateTicTacToeEnvironment(GeneralEnvironment):
         if self.is_local_terminal(self.board[board_index]):
             result = self.get_result(self.board[board_index])
             self.meta_board[board_index] = result
-            if self.is_global_terminal():
+            if self.is_terminal():
                 done = True
         reward = 0
 
@@ -59,7 +59,7 @@ class UltimateTicTacToeEnvironment(GeneralEnvironment):
         cells = tuple(cell for row in self.board for cell in row)
         meta = tuple(self.meta_board)
         active = (self.next_board if self.next_board is not None else -1,)
-        return cells + meta + active
+        return cells + meta + active, reward, done
 
     def get_legal_actions(self):
         if self.next_board is not None:
@@ -79,7 +79,7 @@ class UltimateTicTacToeEnvironment(GeneralEnvironment):
                 return True                
         return all(cell != 0 for cell in board)
     
-    def is_global_terminal(self):
+    def is_terminal(self):
         for line in self.WIN_LINES:
             if self.meta_board[line[0]] != 0 and self.meta_board[line[0]] == self.meta_board[line[1]] == self.meta_board[line[2]]:
                 return True
@@ -91,9 +91,26 @@ class UltimateTicTacToeEnvironment(GeneralEnvironment):
     def get_result(self, board, global_board=False):
         if not global_board and not self.is_local_terminal(board):
             raise ValueError("Local game is not over yet")
-        elif global_board and not self.is_global_terminal():
+        elif global_board and not self.is_terminal():
             raise ValueError("Global game is not over yet")
         for line in self.WIN_LINES:
             if board[line[0]] != 0 and board[line[0]] == board[line[1]] == board[line[2]]:
                 return 1
         return 0
+
+    def render(self):
+        symbols = {0: " ", self.current_player: "X", -self.current_player: "O"}
+        for big_row in range(3):
+            rows = []
+            for small_row in range(3):
+                cells = []
+                for big_col in range(3):
+                    for small_col in range(3):
+                        cell_value = self.board[big_row * 3 + big_col][small_row * 3 + small_col]
+                        cells.append(f" {symbols[cell_value]} ")
+                    if big_col < 2:
+                        cells.append("|")
+                rows.append("".join(cells))
+            print("\n".join(rows))
+            if big_row < 2:
+                print("-" * 11)

@@ -22,7 +22,7 @@ class TicTacToeEnvironment(GeneralEnvironment):
             raise ValueError("Invalid action: Cell is already occupied")
 
         self.board[action] = 1
-        done = self.is_local_terminal()
+        done = self.is_terminal()
         reward = 0
 
         if done:
@@ -39,13 +39,21 @@ class TicTacToeEnvironment(GeneralEnvironment):
     def get_legal_actions(self):
         return [i for i in range(9) if self.board[i] == 0]
 
-    def is_local_terminal(self):
+    def is_terminal(self):
         for line in self.WIN_LINES:
             if self.board[line[0]] != 0 and self.board[line[0]] == self.board[line[1]] == self.board[line[2]]:
                 return True
 
         return all(cell != 0 for cell in self.board)
 
+    def get_result(self):
+        if not self.is_terminal():
+            raise ValueError("Game is not over yet")
+        for line in self.WIN_LINES:
+            if self.board[line[0]] != 0 and self.board[line[0]] == self.board[line[1]] == self.board[line[2]]:
+                return 1
+        return 0
+    
     def render(self):
         symbols = {0: " ", self.current_player: "X", -self.current_player: "O"}
         rows = []
@@ -54,11 +62,3 @@ class TicTacToeEnvironment(GeneralEnvironment):
             rows.append("|".join(cells))
         print(("\n---+---+---\n").join(rows))
         print()
-
-    def get_result(self):
-        if not self.is_local_terminal():
-            raise ValueError("Game is not over yet")
-        for line in self.WIN_LINES:
-            if self.board[line[0]] != 0 and self.board[line[0]] == self.board[line[1]] == self.board[line[2]]:
-                return 1
-        return 0
