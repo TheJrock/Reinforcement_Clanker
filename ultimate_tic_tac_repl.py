@@ -1,25 +1,83 @@
+import random
+
+from clanker import DeepClanker
 from ultimate_tic_tac_toe_env import UltimateTicTacToeEnvironment
 
 def main():
+    multiplayer = None
+    while multiplayer not in ["1", "2"]:
+        multiplayer = input("Play against (1) Human or (2) AI? Enter 1 or 2: ")
+        if multiplayer == "1":
+            human_vs_human()
+        elif multiplayer == "2":
+            human_vs_ai()
+        else:
+            print("Invalid input. Please enter 1 or 2.")
+
+def human_vs_human():
+    env = UltimateTicTacToeEnvironment()
+    playing = True
+    while playing:
+        state = env.reset()
+        current_player = 1
+        done = False
+
+        while not done:
+            env.render()
+            board_num = state[-1]
+            if board_num == -1:
+                board_num = int(input("You can play in any board. Enter the board number (0-8): "))
+            cell = int(input(f"Playing in board {board_num}, enter your move (0-8): "))
+            state, reward, done = env.step(board_num * 9 + cell)
+            current_player = 2 if current_player == 1 else 1
+
+        env.render()
+        if reward == 1:
+            print(f"Player {2 if current_player == 1 else 1} wins!")
+        else:
+            print("It's a draw!")
+
+        play_again = input("Do you want to play again? (y/n): ").lower()
+        if play_again != "y":
+            playing = False
+
+def human_vs_ai():
     env = UltimateTicTacToeEnvironment()
     state = env.reset()
-    done = False
-    
-    while not done:
+    agent = DeepClanker()
+    agent.load("stashed_deep_models/ultimatetictactoe_deep.pth")
+    agent.epsilon = 0.0
+    playing = True
+
+    while playing:
+        state = env.reset()
+        done = False
+        current_player = random.randint(1, 2)
+        while not done:
+            env.render()
+            if current_player == 1:
+                board_num = state[-1]
+                if board_num == -1:
+                    board_num = int(input("You can play in any board. Enter the board number (0-8): "))
+                cell = int(input(f"Playing in board {board_num}, enter your move (0-8): "))
+                action = board_num * 9 + cell
+            else:
+                legal_actions = env.get_legal_actions()
+                action = agent.act(state, legal_actions)
+                print(f"AI chooses: {action}")
+            
+            state, reward, done = env.step(action)
+            current_player = 2 if current_player == 1 else 1
+        
         env.render()
-        board_num = state[-1]
-        if board_num == -1:
-            board_num = int(input("You can play in any board. Enter the board number (0-8): "))
-        cell = int(input(f"Playing in board {board_num}, enter your move (0-8): "))
-        state, reward, done = env.step(board_num * 9 + cell)
-    
-    env.render()
-    if reward == 1:
-        print("You win!")
-    elif reward == -1:
-        print("You lose!")
-    else:
-        print("It's a draw!")
+        if reward == 1:
+            print(f"Player {2 if current_player == 1 else 1} wins!")
+        else:
+            print("It's a draw!")
+        
+        play_again = input("Do you want to play again? (y/n): ").lower()
+        if play_again != "y":
+            playing = False
 
 if __name__ == "__main__":
     main()
