@@ -24,11 +24,19 @@ def human_vs_human():
 
         while not done:
             env.render()
+            legal_actions = env.get_legal_actions()
+            invalid_move = True
             board_num = state[-1]
-            if board_num == -1:
-                board_num = int(input("You can play in any board. Enter the board number (0-8): "))
-            cell = int(input(f"Playing in board {board_num}, enter your move (0-8): "))
-            state, reward, done = env.step(board_num * 9 + cell)
+            while invalid_move:
+                if board_num == -1:
+                    board_num = int(input("You can play in any board. Enter the board number (0-8): "))
+                cell = int(input(f"Playing in board {board_num}, enter your move (0-8): "))
+                action = board_num * 9 + cell
+                if action not in legal_actions:
+                    print("Invalid move. Try again.")
+                else:
+                    invalid_move = False
+            state, reward, done = env.step(action)
             current_player = 2 if current_player == 1 else 1
 
         env.render()
@@ -44,8 +52,8 @@ def human_vs_human():
 def human_vs_ai():
     env = UltimateTicTacToeEnvironment()
     state = env.reset()
-    agent = DeepClanker()
-    agent.load("stashed_deep_models/ultimate_tictactoe_EASY.pth")
+    agent = DeepClanker(91, 81)
+    agent.load("stashed_deep_models/ultimate_tictactoe_FAILED.pth")
     agent.epsilon = 0.0
     playing = True
 
@@ -53,6 +61,10 @@ def human_vs_ai():
         state = env.reset()
         done = False
         current_player = random.randint(1, 2)
+        if current_player == 2:
+            print("You are O, AI is X. AI goes first.")
+        else:
+            print("You are X, AI is O. You go first.")
         while not done:
             env.render()
             legal_actions = env.get_legal_actions()
@@ -70,7 +82,7 @@ def human_vs_ai():
                         invalid_move = False
             else:
                 action = agent.act(state, legal_actions)
-                print(f"AI chooses: {action}")
+                print(f"AI chooses cell {action % 9} in board {action // 9}")
             
             state, reward, done = env.step(action)
             current_player = 2 if current_player == 1 else 1

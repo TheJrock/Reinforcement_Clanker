@@ -118,3 +118,4 @@ class UltimateTicTacToeEnvironment(GeneralEnvironment):
                 rows.append(meta_sep.replace("-", "="))
 
         print("\n".join(rows))
+        print()
