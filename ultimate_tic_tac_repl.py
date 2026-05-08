@@ -45,7 +45,7 @@ def human_vs_ai():
     env = UltimateTicTacToeEnvironment()
     state = env.reset()
     agent = DeepClanker()
-    agent.load("stashed_deep_models/ultimatetictactoe_deep.pth")
+    agent.load("stashed_deep_models/ultimate_tictactoe_EASY.pth")
     agent.epsilon = 0.0
     playing = True
 
@@ -55,14 +55,20 @@ def human_vs_ai():
         current_player = random.randint(1, 2)
         while not done:
             env.render()
+            legal_actions = env.get_legal_actions()
             if current_player == 1:
+                invalid_move = True
                 board_num = state[-1]
-                if board_num == -1:
-                    board_num = int(input("You can play in any board. Enter the board number (0-8): "))
-                cell = int(input(f"Playing in board {board_num}, enter your move (0-8): "))
-                action = board_num * 9 + cell
+                while invalid_move:
+                    if board_num == -1:
+                        board_num = int(input("You can play in any board. Enter the board number (0-8): "))
+                    cell = int(input(f"Playing in board {board_num}, enter your move (0-8): "))
+                    action = board_num * 9 + cell
+                    if action not in legal_actions:
+                        print("Invalid move. Try again.")
+                    else:
+                        invalid_move = False
             else:
-                legal_actions = env.get_legal_actions()
                 action = agent.act(state, legal_actions)
                 print(f"AI chooses: {action}")
             
