@@ -128,7 +128,7 @@ class TableClanker(Clanker):
         self.q_table = {tuple(int(x) for x in state[1:-1].split(', ')): {int(a): v for a, v in actions.items()} for state, actions in data.items()}
 
 class DeepClanker(Clanker):
-    def __init__(self, input_size, output_size, hidden_layers=[128, 128], batch_size=32, update_freq=100, min_replay_size=None, epsilon=1.0, alpha=0.1, gamma=0.99, epsilon_min=0.01, epsilon_decay=0.99999):
+    def __init__(self, input_size, output_size, hidden_layers=[128, 128], batch_size=32, update_freq=100, min_replay_size=None, epsilon=1.0, alpha=0.001, gamma=0.99, epsilon_min=0.01, epsilon_decay=0.99999):
         super().__init__(epsilon, alpha, gamma, epsilon_min, epsilon_decay)
         self.network = HoloNet(input_size, output_size, hidden_layers)
         self.target_network = HoloNet(input_size, output_size, hidden_layers)
