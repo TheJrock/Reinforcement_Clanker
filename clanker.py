@@ -31,10 +31,13 @@ class Clanker(ABC):
 
             if reward == 0:
                 counts["draws"] += 1
-            elif (turn - 1) % 2 == 0:
-                counts["wins"] += 1
             else:
-                counts["losses"] += 1
+                agent_moved_last = (turn - 1) % 2 == 0
+                agent_won = (agent_moved_last and reward == 1) or (not agent_moved_last and reward == -1)
+                if agent_won:
+                    counts["wins"] += 1
+                else:
+                    counts["losses"] += 1
 
         self.epsilon = current_epsilon
         if opponent:
@@ -66,6 +69,7 @@ class Clanker(ABC):
                 elif done and reward == 1 and self_prev_state is not None:
                     self.learn(self_prev_state, self_prev_action, -1, state, True)
             state = next_state
+            turn += 1
             if verbose: environment.render()
 
         return reward, turn
@@ -137,7 +141,8 @@ class DeepClanker(Clanker):
         self.target_network.load_state_dict(self.network.state_dict())
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=alpha)
         self.loss_fn = nn.MSELoss()
-        self.replay_buffer = collections.deque(maxlen=buffer_size)
+        self.replay_buffer = collections.deque(maxlen=buffer_size
+        )
         self.steps = 0
         self.batch_size = batch_size
         self.update_freq = update_freq

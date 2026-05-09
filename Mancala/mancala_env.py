@@ -34,7 +34,7 @@ class MancalaEnvironment(GeneralEnvironment):
         capture = pit != own_goal and self.board[pit] == 1
         if capture:
             mirror = 12 - pit
-            self.board[own_goal] += abs(self.board[mirror]) + 1
+            self.board[own_goal] += self.current_player * (abs(self.board[mirror]) + 1)
             self.board[mirror] = 0
             self.board[pit] = 0
 

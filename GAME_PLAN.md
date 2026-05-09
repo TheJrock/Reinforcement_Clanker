@@ -17,7 +17,7 @@ All games are two-player. Agents train via self-play. States are always from the
 | # | Game | Agent | Status |
 |---|---|---|---|
 | 1 | Tic Tac Toe | `TableClanker` | ✅ Complete — converges to 100% draws vs self, zero losses vs random |
-| 2 | Ultimate Tic Tac Toe | `DeepClanker` | ⏸ Shelved — vanilla DQN insufficient (see notes below). Revisit with AlphaZero-style approach. |
+| 2 | Ultimate Tic Tac Toe | `DeepClanker` | ⏸ Paused — prior runs had a critical `turn += 1` bug. Re-attempt after Mancala before escalating to AlphaZero. |
 | 3 | Mancala (Kalah, 6-pit) | `DeepClanker` | 🔜 Next |
 | 4 | Connect Four | `DeepClanker` | Not started |
 | 5 | Gomoku (5-in-a-row, 15×15) | `DeepClanker` | Not started |
@@ -85,10 +85,12 @@ Vanilla DQN with self-play failed to converge on UTTT despite extensive tuning. 
 - **Root cause:** UTTT is too complex for vanilla DQN self-play. DQN was designed for single-player games (Atari). Two-player self-play creates non-stationarity far beyond what the target network can handle — both the environment and the opponent change simultaneously.
 - **Training against random is insufficient:** Random opponents generate low-quality, inconsistent experiences. The agent never learns to handle coherent strategic threats.
 - **Things tried that didn't fix it:** slower epsilon decay, larger replay buffer (100k→500k), lower learning rate, higher target update frequency, only learning on self's turns, next_state perspective fixes.
-- **Promising ideas for the AlphaZero revisit:**
+- **Newly discovered:** the `play` loop was missing `turn += 1` throughout all prior training runs. This meant turn was frozen at its initial random value — in 50% of episodes the agent acted for both sides (and the retroactive -1 signal never fired), in the other 50% random acted and the agent learned nothing. TTT converged anyway due to its simplicity. It is worth re-attempting UTTT with vanilla DQN after the turn bug is fixed and Mancala is complete.
+- **Promising ideas for the UTTT revisit:**
   - **Frozen target network as opponent:** use `target_network` to select opponent moves during training — provides a stable, consistent opponent that improves gradually. This is essentially what AlphaZero does.
   - **Generational training (league play):** train against random → save checkpoint → train against checkpoint → repeat. Each generation fights a meaningful opponent. Used by OpenAI Five and AlphaStar.
 - **State:** flat tuple of 91 values (81 cells + 9 meta-board + 1 active board index). Actions: 0–80 flat integers (`board_index * 9 + cell_index`).
+- **State encoding issue (unresolved):** The current encoding uses 1 = my piece, -1 = opponent's piece, 0 = empty. Negative inputs are zeroed by ReLU activations, meaning opponent piece information is systematically suppressed in every hidden layer. This likely contributed to poor learning. When revisiting UTTT, consider: (a) two binary channels — one plane for my pieces, one for opponent's pieces, all values 0/1; (b) two values per cell `[1,0]` / `[0,1]` / `[0,0]`; or (c) shifting to [0, 1] range (map -1→0, 0→0.5, 1→1). Option (a) is what AlphaZero uses and is the cleanest.
 
 ---
 
