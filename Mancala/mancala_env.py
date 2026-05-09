@@ -9,7 +9,7 @@ class MancalaEnvironment(GeneralEnvironment):
     def reset(self):
         self.board = [4] * 6 + [0] + [-4] * 6 + [0]
         self.current_player = 1
-        return tuple(self.board)
+        return tuple(abs(v) for v in self.board)
 
     def step(self, action):
         pit = action if self.current_player == 1 else action + 7
@@ -47,7 +47,9 @@ class MancalaEnvironment(GeneralEnvironment):
         elif done:
             reward = self.get_result()
 
-        return tuple(self.board), reward, done
+        if self.current_player == -1:
+            return tuple(abs(v) for v in self.board[7:] + self.board[:7]), reward, done
+        return tuple(abs(v) for v in self.board), reward, done
 
     def get_legal_actions(self):
         actions = []

@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 
 class GeneralEnvironment(ABC):
 
+    # all inheritance classes should also have self.current_player which is 1 or -1, and should switch after each step
+
     @abstractmethod
     def reset(self):
         """Reset the game to the initial state. Return the starting state from the current player's perspective."""

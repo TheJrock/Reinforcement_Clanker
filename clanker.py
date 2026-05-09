@@ -27,17 +27,13 @@ class Clanker(ABC):
         self.epsilon = 0.0
         counts = {"wins": 0, "losses": 0, "draws": 0}
         for episode in tqdm(range(episodes)):
-            reward, turn = self.play(environment, learning=False, opponent=opponent, verbose=verbose)
+            reward, agent_player = self.play(environment, learning=False, opponent=opponent, verbose=verbose)
 
             if reward == 0:
                 counts["draws"] += 1
             else:
-                agent_moved_last = (turn - 1) % 2 == 0
-                agent_won = (agent_moved_last and reward == 1) or (not agent_moved_last and reward == -1)
-                if agent_won:
-                    counts["wins"] += 1
-                else:
-                    counts["losses"] += 1
+                agent_won = (environment.current_player == agent_player) == (reward == 1)
+                counts["wins" if agent_won else "losses"] += 1
 
         self.epsilon = current_epsilon
         if opponent:
@@ -48,13 +44,14 @@ class Clanker(ABC):
     def play(self, environment, learning, opponent=None, verbose=False):
         state = environment.reset()
         done = False
-        turn = random.randint(0, 1)
+        agent_player = random.choice([1, -1])
         self_prev_state = None
         self_prev_action = None
 
         while not done:
             legal_actions = environment.get_legal_actions()
-            if turn % 2 == 0:
+            acting_player = environment.current_player
+            if acting_player == agent_player:
                 action = self.act(state, legal_actions)
             elif opponent:
                 action = opponent.act(state, legal_actions)
@@ -62,17 +59,16 @@ class Clanker(ABC):
                 action = random.choice(legal_actions)
             next_state, reward, done = environment.step(action)
             if learning:
-                if turn % 2 == 0:
+                if acting_player == agent_player:
                     self.learn(state, action, reward, next_state, done)
                     self_prev_state = state
                     self_prev_action = action
                 elif done and reward == 1 and self_prev_state is not None:
                     self.learn(self_prev_state, self_prev_action, -1, state, True)
             state = next_state
-            turn += 1
             if verbose: environment.render()
 
-        return reward, turn
+        return reward, agent_player
 
     def update_epsilon(self):
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
