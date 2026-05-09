@@ -35,11 +35,11 @@ def human_vs_human():
             state, reward, done = env.step(pit)
 
         env.render()
-        winner = 1 if env.current_player == 1 else 2
-        if reward == 1:
-            print(f"Player {winner} wins!")
-        else:
+        if reward == 0:
             print("It's a draw!")
+        else:
+            winner_side = env.current_player if reward == 1 else -env.current_player
+            print(f"Player {1 if winner_side == 1 else 2} wins!")
 
         play_again = input("Do you want to play again? (y/n): ").lower()
         if play_again != "y":
@@ -76,13 +76,14 @@ def human_vs_ai():
                 state, reward, done = env.step(action)
 
         env.render()
-        if reward == 1:
-            if env.current_player == human_side:
+        if reward == 0:
+            print("It's a draw!")
+        else:
+            winner_side = env.current_player if reward == 1 else -env.current_player
+            if winner_side == human_side:
                 print("Congratulations! You win!")
             else:
                 print("AI wins! Better luck next time.")
-        else:
-            print("It's a draw!")
 
         play_again = input("Do you want to play again? (y/n): ").lower()
         if play_again != "y":

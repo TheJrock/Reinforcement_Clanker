@@ -25,7 +25,10 @@ class MancalaEnvironment(GeneralEnvironment):
             pit = (pit + 1) % 14
             if pit == opponent_goal:
                 continue
-            self.board[pit] += self.current_player if pit <= 6 else -self.current_player
+            elif pit == own_goal:
+                self.board[pit] += self.current_player
+            else:
+                self.board[pit] += self.current_player if pit < 7 else -self.current_player
             stones -= 1
 
         capture = pit != own_goal and self.board[pit] == 1
