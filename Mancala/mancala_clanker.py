@@ -2,7 +2,7 @@ from clanker import DeepClanker
 from Mancala.mancala_env import MancalaEnvironment
 
 EVAL_EPISODES = 1000
-TRAIN_EPISODES = 100000
+TRAIN_EPISODES = 10000
 
 def main():
     env = MancalaEnvironment()

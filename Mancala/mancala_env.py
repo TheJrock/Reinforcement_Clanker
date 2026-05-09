@@ -40,12 +40,12 @@ class MancalaEnvironment(GeneralEnvironment):
 
         done = self.is_terminal()
         reward = 0
-        if not done and pit != own_goal:
+        if done:
+            reward = self.get_result()
+        elif pit != own_goal:
             for pit in range(14):
                 self.board[pit] *= -1
             self.current_player *= -1
-        elif done:
-            reward = self.get_result()
 
         if self.current_player == -1:
             return tuple(abs(v) for v in self.board[7:] + self.board[:7]), reward, done

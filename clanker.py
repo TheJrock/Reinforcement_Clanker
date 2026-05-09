@@ -60,7 +60,7 @@ class Clanker(ABC):
             next_state, reward, done = environment.step(action)
             if learning:
                 if acting_player == agent_player:
-                    self.learn(state, action, reward, next_state, done)
+                    self.learn(state, action, reward, next_state, done, negate=environment.current_player != agent_player)
                     self_prev_state = state
                     self_prev_action = action
                 elif done and reward == 1 and self_prev_state is not None:
@@ -81,7 +81,7 @@ class Clanker(ABC):
         return self.get_best_action(state, legal_actions)
 
     @abstractmethod
-    def learn(self, state, action, reward, next_state, done):
+    def learn(self, state, action, reward, next_state, done, negate=True):
         pass
 
     @abstractmethod
@@ -110,12 +110,12 @@ class TableClanker(Clanker):
         best_action = max(legal_actions, key=lambda action: self.q_table[state].get(action, 0.0))
         return best_action
 
-    def learn(self, state, action, reward, next_state, done):
+    def learn(self, state, action, reward, next_state, done, negate=True):
         if done:
             target = reward
         else:
             max_next_q = max(self.q_table.get(next_state, {}).values(), default=0.0)
-            target = reward + self.gamma * (-max_next_q)
+            target = reward + self.gamma * ((-1 if negate else 1) * max_next_q)
         current_q = self.q_table.get(state, {}).get(action, 0.0)
         self.q_table.setdefault(state, {})[action] = current_q + self.alpha * (target - current_q)
 
@@ -163,20 +163,21 @@ class DeepClanker(Clanker):
         best_action = max(legal_actions, key=lambda action: q_values[action].item())
         return best_action
 
-    def learn(self, state, action, reward, next_state, done):
-        self.replay_buffer.append((state, action, reward, next_state, done))
+    def learn(self, state, action, reward, next_state, done, negate=True):
+        self.replay_buffer.append((state, action, reward, next_state, done, negate))
         if len(self.replay_buffer) < self.min_replay_size:
             return
         batch = random.sample(self.replay_buffer, self.batch_size)
-        states, actions, rewards, next_states, dones = zip(*batch)
+        states, actions, rewards, next_states, dones, negates = zip(*batch)
         states = torch.tensor(states, dtype=torch.float32).to(self.gpu_device)
         actions = torch.tensor(actions, dtype=torch.int64).to(self.gpu_device)
         rewards = torch.tensor(rewards, dtype=torch.float32).to(self.gpu_device)
         next_states = torch.tensor(next_states, dtype=torch.float32).to(self.gpu_device)
         dones = torch.tensor(dones, dtype=torch.float32).to(self.gpu_device)
+        signs = torch.tensor([-1.0 if n else 1.0 for n in negates], dtype=torch.float32).to(self.gpu_device)
         with torch.no_grad():
             max_next_q = self.target_network(next_states).max(dim=1).values
-            targets = rewards + self.gamma * (-max_next_q) * (1 - dones)
+            targets = rewards + self.gamma * signs * max_next_q * (1 - dones)
         predicted_q = self.network(states).gather(1, actions.unsqueeze(1)).squeeze(1)
         loss = self.loss_fn(predicted_q, targets)
         self.optimizer.zero_grad()
