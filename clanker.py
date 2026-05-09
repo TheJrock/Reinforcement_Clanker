@@ -46,8 +46,8 @@ class Clanker(ABC):
         state = environment.reset()
         done = False
         turn = random.randint(0, 1)
-        prev_state = None
-        prev_action = None
+        self_prev_state = None
+        self_prev_action = None
 
         while not done:
             legal_actions = environment.get_legal_actions()
@@ -59,11 +59,12 @@ class Clanker(ABC):
                 action = random.choice(legal_actions)
             next_state, reward, done = environment.step(action)
             if learning:
-                if done and reward == 1 and prev_state is not None:
-                    self.learn(prev_state, prev_action, -1, state, True)
-                self.learn(state, action, reward, next_state, done)
-            prev_state = state
-            prev_action = action
+                if turn % 2 == 0:
+                    self.learn(state, action, reward, next_state, done)
+                    self_prev_state = state
+                    self_prev_action = action
+                elif done and reward == 1 and self_prev_state is not None:
+                    self.learn(self_prev_state, self_prev_action, -1, state, True)
             state = next_state
             if verbose: environment.render()
 
@@ -129,14 +130,14 @@ class TableClanker(Clanker):
         self.q_table = {tuple(int(x) for x in state[1:-1].split(', ')): {int(a): v for a, v in actions.items()} for state, actions in data.items()}
 
 class DeepClanker(Clanker):
-    def __init__(self, input_size, output_size, hidden_layers=[128, 128], batch_size=32, update_freq=1000, min_replay_size=None, epsilon=1.0, alpha=0.0001, gamma=0.99, epsilon_min=0.01, epsilon_decay=0.99999, gpu_device=None):
+    def __init__(self, input_size, output_size, hidden_layers=[128, 128], batch_size=32, update_freq=1000, min_replay_size=None, epsilon=1.0, alpha=0.0001, gamma=0.99, epsilon_min=0.01, epsilon_decay=0.99999, gpu_device=None, buffer_size=100000):
         super().__init__(epsilon, alpha, gamma, epsilon_min, epsilon_decay)
         self.network = HoloNet(input_size, output_size, hidden_layers)
         self.target_network = HoloNet(input_size, output_size, hidden_layers)
         self.target_network.load_state_dict(self.network.state_dict())
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=alpha)
         self.loss_fn = nn.MSELoss()
-        self.replay_buffer = collections.deque(maxlen=100000)
+        self.replay_buffer = collections.deque(maxlen=buffer_size)
         self.steps = 0
         self.batch_size = batch_size
         self.update_freq = update_freq

@@ -53,7 +53,7 @@ def human_vs_ai():
     env = UltimateTicTacToeEnvironment()
     state = env.reset()
     agent = DeepClanker(91, 81)
-    agent.load("stashed_deep_models/ultimate_tictactoe_FAILED.pth")
+    agent.load("stashed_deep_models/UTTT/ultimate_tictactoe_6.0.pth")
     agent.epsilon = 0.0
     playing = True
 
@@ -89,7 +89,10 @@ def human_vs_ai():
         
         env.render()
         if reward == 1:
-            print(f"Player {2 if current_player == 1 else 1} wins!")
+            if current_player == 2:
+                print("Congratulations! You win!")
+            else:
+                print("AI wins! Better luck next time.")
         else:
             print("It's a draw!")
         
