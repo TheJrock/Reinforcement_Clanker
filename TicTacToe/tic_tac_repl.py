@@ -1,7 +1,7 @@
 import random
 
 from clanker import TableClanker
-from tic_tac_toe_env import TicTacToeEnvironment
+from TicTacToe.tic_tac_toe_env import TicTacToeEnvironment
 
 def main():
     multiplayer = None

@@ -1,5 +1,5 @@
 from clanker import DeepClanker
-from ultimate_tic_tac_toe_env import UltimateTicTacToeEnvironment
+from UltimateTicTacToe.ultimate_tic_tac_toe_env import UltimateTicTacToeEnvironment
 
 EVAL_EPISODES = 100
 TRAIN_EPISODES = 100000

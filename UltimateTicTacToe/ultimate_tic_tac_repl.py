@@ -1,7 +1,7 @@
 import random
 
 from clanker import DeepClanker
-from ultimate_tic_tac_toe_env import UltimateTicTacToeEnvironment
+from UltimateTicTacToe.ultimate_tic_tac_toe_env import UltimateTicTacToeEnvironment
 
 def main():
     multiplayer = None
