@@ -19,26 +19,25 @@ def human_vs_human():
     playing = True
     while playing:
         state = env.reset()
-        current_player = 1
         done = False
 
         while not done:
             env.render()
+            display_player = 1 if env.current_player == 1 else 2
             legal_actions = env.get_legal_actions()
             invalid_move = True
             while invalid_move:
-                pit = int(input(f"Player {current_player}, enter your move (0-5): "))
-                action = pit if current_player == 1 else pit + 7
-                if action not in legal_actions:
+                pit = int(input(f"Player {display_player}, enter your move (0-5): "))
+                if pit not in legal_actions:
                     print("Invalid move. Try again.")
                 else:
                     invalid_move = False
-            state, reward, done = env.step(action)
-            current_player = 2 if current_player == 1 else 1
+            state, reward, done = env.step(pit)
 
         env.render()
+        winner = 1 if env.current_player == 1 else 2
         if reward == 1:
-            print(f"Player {2 if current_player == 1 else 1} wins!")
+            print(f"Player {winner} wins!")
         else:
             print("It's a draw!")
 
@@ -48,8 +47,7 @@ def human_vs_human():
 
 def human_vs_ai():
     env = MancalaEnvironment()
-    state = env.reset()
-    agent = DeepClanker(91, 81)
+    agent = DeepClanker(14, 6)
     agent.load("stashed_models/mancala_deep.pth")
     agent.epsilon = 0.0
     playing = True
@@ -57,39 +55,35 @@ def human_vs_ai():
     while playing:
         state = env.reset()
         done = False
-        current_player = random.randint(1, 2)
-        if current_player == 2:
-            print("AI goes first.")
-        else:
-            print("You go first.")
+        human_side = random.choice([1, -1])
+        print("You go first." if human_side == 1 else "AI goes first.")
+
         while not done:
             env.render()
             legal_actions = env.get_legal_actions()
-            if current_player == 1:
+            if env.current_player == human_side:
                 invalid_move = True
                 while invalid_move:
-                    pit = int(input(f"Player {current_player}, enter your move (0-5): "))
-                    action = pit if current_player == 1 else pit + 7
-                    if action not in legal_actions:
+                    pit = int(input("Your move (0-5): "))
+                    if pit not in legal_actions:
                         print("Invalid move. Try again.")
                     else:
                         invalid_move = False
+                state, reward, done = env.step(pit)
             else:
                 action = agent.act(state, legal_actions)
-                print(f"AI chooses pit {action % 7}.")
-            
-            state, reward, done = env.step(action)
-            current_player = 2 if current_player == 1 else 1
-        
+                print(f"AI chooses pit {action}.")
+                state, reward, done = env.step(action)
+
         env.render()
         if reward == 1:
-            if current_player == 2:
+            if env.current_player == human_side:
                 print("Congratulations! You win!")
             else:
                 print("AI wins! Better luck next time.")
         else:
             print("It's a draw!")
-        
+
         play_again = input("Do you want to play again? (y/n): ").lower()
         if play_again != "y":
             playing = False

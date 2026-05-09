@@ -12,34 +12,34 @@ class MancalaEnvironment(GeneralEnvironment):
         return tuple(self.board)
 
     def step(self, action):
-        index = action if self.current_player == 1 else action + 7
-        stones = abs(self.board[index])
+        pit = action if self.current_player == 1 else action + 7
+        stones = abs(self.board[pit])
         if stones == 0:
             raise ValueError("Invalid action: pit is empty")
 
-        self.board[index] = 0
+        self.board[pit] = 0
         opponent_goal = 13 if self.current_player == 1 else 6
         own_goal = 6 if self.current_player == 1 else 13
 
         while stones > 0:
-            index = (index + 1) % 14
-            if index == opponent_goal:
+            pit = (pit + 1) % 14
+            if pit == opponent_goal:
                 continue
-            self.board[index] += self.current_player if index <= 6 else -self.current_player
+            self.board[pit] += self.current_player if pit <= 6 else -self.current_player
             stones -= 1
 
-        capture = index != own_goal and self.board[index] == 1
+        capture = pit != own_goal and self.board[pit] == 1
         if capture:
-            mirror = 12 - index
+            mirror = 12 - pit
             self.board[own_goal] += abs(self.board[mirror]) + 1
             self.board[mirror] = 0
-            self.board[index] = 0
+            self.board[pit] = 0
 
         done = self.is_terminal()
         reward = 0
-        if not done and index != own_goal:
-            for cell in range(14):
-                self.board[cell] *= -1
+        if not done and pit != own_goal:
+            for pit in range(14):
+                self.board[pit] *= -1
             self.current_player *= -1
         elif done:
             reward = self.get_result()
@@ -48,9 +48,9 @@ class MancalaEnvironment(GeneralEnvironment):
 
     def get_legal_actions(self):
         actions = []
-        for cell in range(len(self.board)):
-            if self.board[cell] > 0 and cell not in [6, 13]:
-                actions.append(cell % 7)
+        for pit in range(len(self.board)):
+            if self.board[pit] > 0 and pit not in [6, 13]:
+                actions.append(pit % 7)
 
         return actions
 
