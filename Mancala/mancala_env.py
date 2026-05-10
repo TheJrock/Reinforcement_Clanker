@@ -79,7 +79,7 @@ class MancalaEnvironment(GeneralEnvironment):
         sep   = "+------+----+----+----+----+----+----+------+"
         print(sep)
         print(f"|  P2  | {' | '.join(f'{v:2}' for v in p2_pits)} |  P1  |")
-        print(f"| {b[13]:4} | {'    | ' * 6}  {b[6]:3} |")
+        print(f"| {b[13]:4} | {'   | ' * 6}  {b[6]:3} |")
         print(f"|      | {' | '.join(f'{v:2}' for v in p1_pits)} |      |")
         print(sep)
         print()

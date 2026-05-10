@@ -48,7 +48,7 @@ def human_vs_human():
 def human_vs_ai():
     env = MancalaEnvironment()
     agent = DeepClanker(14, 6)
-    agent.load("stashed_models/mancala_deep.pth")
+    agent.load("Mancala/stashed_models/mancala_2.3.pth")
     agent.epsilon = 0.0
     playing = True
 

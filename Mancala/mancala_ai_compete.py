@@ -1,0 +1,36 @@
+from clanker import DeepClanker
+from Mancala.mancala_env import MancalaEnvironment
+
+def main():
+    agent10 = DeepClanker(14, 6)
+    agent11 = DeepClanker(14, 6)
+    agent20 = DeepClanker(14, 6)
+    agent21 = DeepClanker(14, 6)
+    agent22 = DeepClanker(14, 6)
+    agent23 = DeepClanker(14, 6)
+    agent24 = DeepClanker(14, 6)
+    agent10.load("Mancala/stashed_models/mancala_1.0.pth")
+    agent11.load("Mancala/stashed_models/mancala_1.1.pth")
+    agent20.load("Mancala/stashed_models/mancala_2.0.pth")
+    agent21.load("Mancala/stashed_models/mancala_2.1.pth")
+    agent22.load("Mancala/stashed_models/mancala_2.2.pth")
+    agent23.load("Mancala/stashed_models/mancala_2.3.pth")
+    agent24.load("Mancala/stashed_models/mancala_2.4.pth")
+    env = MancalaEnvironment()
+    counts = agent24.evaluate(env, opponent=agent10, episodes=1000)
+    print("Agent 2.4 vs Agent 1.0:", counts)
+    counts = agent24.evaluate(env, opponent=agent11, episodes=1000)
+    print("Agent 2.4 vs Agent 1.1:", counts)
+    counts = agent24.evaluate(env, opponent=agent20, episodes=1000)
+    print("Agent 2.4 vs Agent 2.0:", counts)
+    counts = agent24.evaluate(env, opponent=agent21, episodes=1000)
+    print("Agent 2.4 vs Agent 2.1:", counts)
+    counts = agent24.evaluate(env, opponent=agent22, episodes=1000)
+    print("Agent 2.4 vs Agent 2.2:", counts)
+    counts = agent24.evaluate(env, opponent=agent23, episodes=1000)
+    print("Agent 2.4 vs Agent 2.3:", counts)
+    counts = agent24.evaluate(env, opponent=agent24, episodes=1000)
+    print("Agent 2.4 vs Agent 2.4:", counts)
+
+if __name__ == "__main__":
+    main()

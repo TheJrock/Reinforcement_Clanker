@@ -8,7 +8,7 @@
 - **`HoloNet`** — PyTorch `nn.Module`, configurable hidden layers, used by `DeepClanker`
 - **Future:** AlphaZero-style agent (MCTS + neural network) for Chess and beyond. PPO-based agent for continuous state/action spaces.
 
-All games are two-player. Agents train via self-play. States are always from the current player's perspective (1 = me, -1 = opponent, 0 = empty). Negamax negation applied in `learn` for zero-sum correctness.
+All games are two-player. Agents train via self-play. States are always from the current player's perspective. All values are non-negative — position encodes ownership (my pits/pieces always in consistent indices, opponent's always in consistent indices), so no negative inputs to poison ReLU activations. Negamax negation applied in `learn` for zero-sum correctness.
 
 ---
 
@@ -17,14 +17,36 @@ All games are two-player. Agents train via self-play. States are always from the
 | # | Game | Agent | Status |
 |---|---|---|---|
 | 1 | Tic Tac Toe | `TableClanker` | ✅ Complete — converges to 100% draws vs self, zero losses vs random |
-| 2 | Ultimate Tic Tac Toe | `DeepClanker` | ⏸ Paused — prior runs had a critical `turn += 1` bug. Re-attempt after Mancala before escalating to AlphaZero. |
-| 3 | Mancala (Kalah, 6-pit) | `DeepClanker` | 🔜 Next |
-| 4 | Connect Four | `DeepClanker` | Not started |
+| 2 | Ultimate Tic Tac Toe | `DeepClanker` | ⏸ Paused — shelved for Phase 1.5 revisit with generational training |
+| 3 | Mancala (Kalah, 6-pit) | `DeepClanker` | ✅ Complete — 73.6% win rate vs random after 100k episodes. 1000/1000 draws vs self (confirms correct state normalization and Nash convergence). Generalization problem confirmed: less-trained agents beat more-trained due to determinism exploitation — expected, addressed in Phase 1.5. |
+| 4 | Connect Four | `DeepClanker` | 🔜 Next |
 | 5 | Gomoku (5-in-a-row, 15×15) | `DeepClanker` | Not started |
 | 6 | Othello | `DeepClanker` | Not started |
 | 7 | Checkers | `DeepClanker` | Not started |
 
 Rock Paper Scissors was considered and rejected — no board state, optimal policy is a mixed Nash equilibrium that Q-learning can't represent.
+
+---
+
+## Phase 1.5 — Generational Training (Revisit Phase 1 Games)
+
+DQN agents trained against random opponents converge to brittle, deterministic policies that are easily exploited by any non-random opponent — including a randomly initialized network. Generational training addresses this by progressively improving the quality of the opponent over time, producing robust agents that can handle strategic play.
+
+**Approach:** train against random → save checkpoint → train against checkpoint → repeat. Each generation fights a more competent opponent. Used by OpenAI Five and AlphaStar.
+
+**Alternative:** use the frozen target network as the opponent during training — it improves gradually as the main network trains, providing a stable but increasingly capable opponent without explicit checkpoint management.
+
+All Phase 1 games will be revisited in this phase after the full Phase 1 sweep is complete.
+
+| # | Game | Status |
+|---|---|---|
+| 1 | Tic Tac Toe | Not started |
+| 2 | Ultimate Tic Tac Toe | Not started — also benefits from state encoding fix (see post-mortem) |
+| 3 | Mancala | Not started |
+| 4 | Connect Four | Not started |
+| 5 | Gomoku | Not started |
+| 6 | Othello | Not started |
+| 7 | Checkers | Not started |
 
 ---
 
@@ -112,9 +134,11 @@ Vanilla DQN with self-play failed to converge on UTTT despite extensive tuning. 
 ## Current Status & Next Steps
 
 1. ✅ Tic Tac Toe — complete
-2. ⏸ Ultimate Tic Tac Toe — shelved, revisit in Phase 2 with AlphaZero
-3. 🔜 Mancala — next
-4. Continue Phase 1 board games through Checkers
-5. Build web frontend after at least one DQN game is fully working
-6. Phase 2 (AlphaZero: UTTT + Chess) after Phase 1 complete
-7. Phase 3 (card games) and Phase 4 (continuous control) are long-term goals
+2. ⏸ Ultimate Tic Tac Toe — shelved, revisit in Phase 1.5 with generational training
+3. ✅ Mancala — complete
+4. 🔜 Connect Four — next
+5. Continue Phase 1 board games through Checkers (all trained against random)
+6. Phase 1.5 — revisit all Phase 1 games with generational training
+7. Build web frontend after Phase 1.5 is proven on at least one game
+8. Phase 2 (AlphaZero: UTTT + Chess) after Phase 1.5
+9. Phase 3 (card games) and Phase 4 (continuous control) are long-term goals
