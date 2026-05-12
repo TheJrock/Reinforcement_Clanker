@@ -19,10 +19,13 @@ class UltimateTicTacToeEnvironment(GeneralEnvironment):
         self.meta_board = [0] * 9
         self.current_player = 1
         self.next_board = None
-        cells = tuple(cell for row in self.board for cell in row)
-        meta = tuple(self.meta_board)
-        active = (self.next_board if self.next_board is not None else -1,)
+        cells = self._to_agent_state([cell for row in self.board for cell in row])
+        meta = self._to_agent_state(self.meta_board)
+        active = (self.next_board if self.next_board is not None else 9,)
         return cells + meta + active
+    
+    def _to_agent_state(self, board):
+        return tuple((v + 1) / 2 for v in board)
 
     def step(self, action):
         board_index = action // 9
@@ -56,9 +59,9 @@ class UltimateTicTacToeEnvironment(GeneralEnvironment):
                     self.board[i][j] *= -1
             self.current_player *= -1
 
-        cells = tuple(cell for row in self.board for cell in row)
-        meta = tuple(self.meta_board)
-        active = (self.next_board if self.next_board is not None else -1,)
+        cells = self._to_agent_state([cell for row in self.board for cell in row])
+        meta = self._to_agent_state(self.meta_board)
+        active = (self.next_board if self.next_board is not None else 9,)
         return cells + meta + active, reward, done
 
     def get_legal_actions(self):

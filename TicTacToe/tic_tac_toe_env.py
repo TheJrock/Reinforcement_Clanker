@@ -15,7 +15,10 @@ class TicTacToeEnvironment(GeneralEnvironment):
     def reset(self):
         self.board = [0] * 9
         self.current_player = 1
-        return tuple(self.board)
+        return self._to_agent_state(self.board)
+    
+    def _to_agent_state(self, board):
+        return tuple((v + 1) / 2 for v in board)
 
     def step(self, action):
         if self.board[action] != 0:
@@ -34,7 +37,7 @@ class TicTacToeEnvironment(GeneralEnvironment):
                 self.board[i] *= -1
             self.current_player *= -1
 
-        return tuple(self.board), reward, done
+        return self._to_agent_state(self.board), reward, done
 
     def get_legal_actions(self):
         return [i for i in range(9) if self.board[i] == 0]
