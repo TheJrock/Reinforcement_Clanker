@@ -130,10 +130,10 @@ class TableClanker(Clanker):
         self.q_table = {tuple(int(x) for x in state[1:-1].split(', ')): {int(a): v for a, v in actions.items()} for state, actions in data.items()}
 
 class DeepClanker(Clanker):
-    def __init__(self, input_size, output_size, hidden_layers=[128, 128], batch_size=32, update_freq=1000, min_replay_size=None, epsilon=1.0, alpha=0.0001, gamma=0.99, epsilon_min=0.01, epsilon_decay=0.99999, gpu_device=None, buffer_size=100000):
+    def __init__(self, input_size, output_size, hidden_layers=[128, 128], batch_size=32, update_freq=1000, min_replay_size=None, epsilon=1.0, alpha=0.0001, gamma=0.99, epsilon_min=0.01, epsilon_decay=0.99999, gpu_device=None, buffer_size=100000, activation="leaky_relu"):
         super().__init__(epsilon, alpha, gamma, epsilon_min, epsilon_decay)
-        self.network = HoloNet(input_size, output_size, hidden_layers)
-        self.target_network = HoloNet(input_size, output_size, hidden_layers)
+        self.network = HoloNet(input_size, output_size, hidden_layers, activation=activation)
+        self.target_network = HoloNet(input_size, output_size, hidden_layers, activation=activation)
         self.target_network.load_state_dict(self.network.state_dict())
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=alpha)
         self.loss_fn = nn.MSELoss()
@@ -195,12 +195,22 @@ class DeepClanker(Clanker):
         self.target_network.load_state_dict(self.network.state_dict())
 
 class HoloNet(nn.Module):
-    def __init__(self, input_size, output_size, hidden_layers=[128, 128]):
+
+    ACTIVATION_FUNCTIONS = {
+        "relu": nn.ReLU,
+        "leaky_relu": nn.LeakyReLU
+    }
+
+    def __init__(self, input_size, output_size, hidden_layers=[128, 128], activation="leaky_relu"):
         super(HoloNet, self).__init__()
         sizes = [input_size] + hidden_layers + [output_size]
         self.layers = nn.ModuleList([nn.Linear(sizes[i], sizes[i+1]) for i in range(len(sizes)-1)])
+        if activation in self.ACTIVATION_FUNCTIONS:
+            self.activation = self.ACTIVATION_FUNCTIONS[activation]()
+        else:
+            raise ValueError(f"Unsupported activation: {activation}")
 
     def forward(self, x):
         for layer in self.layers[:-1]:
-            x = torch.relu(layer(x))
+            x = self.activation(layer(x))
         return self.layers[-1](x)
