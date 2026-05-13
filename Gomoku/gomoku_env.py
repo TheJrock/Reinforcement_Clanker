@@ -77,9 +77,10 @@ class GomokuEnvironment(GeneralEnvironment):
 
     def render(self):
         symbols = {0: ".", 1: "X", -1: "O"}
-        header = "   " + " ".join(f"{c:2}" for c in range(self.board_size))
+        header = "   " + "  ".join(f"{c:2}" for c in range(self.board_size))
         print(header)
         for r in range(self.board_size):
-            row_str = " ".join(symbols[v * self.current_player] for v in self.board[r])
+            row_str = "  ".join(f" {symbols[v * self.current_player]}" for v in self.board[r])
             print(f"{r:2} {row_str}")
+            print()
         print()
