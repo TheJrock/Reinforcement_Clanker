@@ -19,7 +19,7 @@ All games are two-player. Agents train via self-play. States are always from the
 | 1 | Tic Tac Toe | `TableClanker` | ✅ Complete — converges to 100% draws vs self, zero losses vs random |
 | 2 | Ultimate Tic Tac Toe | `DeepClanker` | ✅ Complete — 85.8% win rate vs random after 100k episodes (7.3% losses, 6.9% draws). Outperformed Mancala despite greater complexity. Previous failures were entirely due to implementation bugs, not game difficulty. |
 | 3 | Mancala (Kalah, 6-pit) | `DeepClanker` | ✅ Complete — 73.6% win rate vs random after 100k episodes. 1000/1000 draws vs self (confirms correct state normalization and Nash convergence). Generalization problem confirmed: less-trained agents beat more-trained due to determinism exploitation — expected, addressed in Phase 1.5. |
-| 4 | Connect Four | `DeepClanker` | 🔜 Next |
+| 4 | Connect Four | `DeepClanker` | ✅ Complete — 97.1% win rate vs random after 100k episodes (2.9% losses, 0% draws). Strong result; DQN ceiling estimated at ~98-99%. AlphaZero revisit planned in Phase 2. |
 | 5 | Gomoku (5-in-a-row, 15×15) | `DeepClanker` | Not started |
 | 6 | Othello | `DeepClanker` | Not started |
 | 7 | Checkers | `DeepClanker` | Not started |
@@ -32,9 +32,15 @@ Rock Paper Scissors was considered and rejected — no board state, optimal poli
 
 DQN agents trained against random opponents converge to brittle, deterministic policies that are easily exploited by any non-random opponent — including a randomly initialized network. Generational training addresses this by progressively improving the quality of the opponent over time, producing robust agents that can handle strategic play.
 
-**Approach:** train against random → save checkpoint → train against checkpoint → repeat. Each generation fights a more competent opponent. Used by OpenAI Five and AlphaStar.
+**Approach:** load the Phase 1 trained model as the starting point → freeze a copy as the opponent → reset epsilon to ~0.3–0.5 → train until the main agent clearly surpasses the frozen copy → save as next generation → repeat. Starting both agents from the same weights gives a roughly 50/50 matchup at the start of each generation, ensuring positive reward signal from the beginning. Each generation only needs to beat the previous one.
 
 **Alternative:** use the frozen target network as the opponent during training — it improves gradually as the main network trains, providing a stable but increasingly capable opponent without explicit checkpoint management.
+
+**Risk — strategy collapse:** generational training can converge along a single strategic trajectory. Each generation only needs to beat the previous one, so the lineage might collectively miss strategies that don't naturally emerge from that path. A later generation might also "forget" counters that an earlier generation knew, creating rock-paper-scissors cycles where no single strategy dominates.
+
+**League play (preferred mitigation):** rather than training each generation against only the most recent checkpoint, maintain a roster of all past checkpoints and sample opponents from the full history. Each generation must play well against everyone, not just the latest — this prevents the agent from specializing narrowly and keeps the strategy space diverse. Used by AlphaStar. Adds checkpoint management overhead but produces more robust agents.
+
+**Note on TTT:** the TableClanker opponent is perfect — optimal play always draws, so no wins are achievable. The success metric is "never loses" rather than "achieves wins." Consider using a draw reward of 0.5 instead of 0 to give the agent a positive signal to climb toward, since draw (0) and unexplored states (Q-values near 0) are otherwise indistinguishable to the network.
 
 All Phase 1 games will be revisited in this phase after the full Phase 1 sweep is complete.
 
@@ -54,10 +60,15 @@ All Phase 1 games will be revisited in this phase after the full Phase 1 sweep i
 
 | # | Game | Agent | Notes |
 |---|---|---|---|
-| 8 | Ultimate Tic Tac Toe | AlphaZero-style | Revisit after Phase 1. Complexity exceeds vanilla DQN. |
-| 9 | Chess | AlphaZero-style | MCTS + neural network. Standard DQN cannot handle this state space. |
+| 8 | Mancala | AlphaZero-style | Starting point for Phase 2 — familiar game, small state space, good for validating the MCTS + neural network pipeline before scaling up. Kalah is solved (P1 wins), so perfect play is verifiable. |
+| 9 | Connect Four | AlphaZero-style | Solved (P1 wins). DQN plateaus around 98-99% vs random — AlphaZero is needed to close the gap to provably perfect play. Direct before/after comparison validates Phase 2. |
+| 10 | Ultimate Tic Tac Toe | AlphaZero-style | Not fully solved. Complexity exceeds what vanilla DQN can handle well long-term. |
+| 11 | Gomoku (15×15) | AlphaZero-style | Large state space (225 cells, high branching factor) likely too complex for DQN to achieve strong play. MCTS is the natural fit. Standard Gomoku is solved (P1 wins) but the proof is deep — empirical strength is the benchmark. |
+| 12 | Othello | AlphaZero-style | Not fully solved on 8×8. Complex strategic depth rewards deep lookahead that MCTS handles naturally. DQN will learn reasonable play but won't approach optimal. |
+| 13 | Checkers | AlphaZero-style | Solved by Chinook in 2007 — perfect play always draws. First major board game solved by computer; achieving near-perfect play is a meaningful milestone. DQN will fall well short of optimal. |
+| 14 | Chess | AlphaZero-style | MCTS + neural network. Standard DQN cannot handle this state space. Long-term goal. |
 
-AlphaZero approach: neural network guides Monte Carlo Tree Search (look-ahead), trained via self-play. Computationally expensive but necessary for Chess-level complexity.
+AlphaZero approach: neural network guides Monte Carlo Tree Search (look-ahead), trained via self-play. Computationally expensive but necessary for Chess-level complexity. Mancala serves as the entry point to validate the pipeline before tackling larger state spaces.
 
 ---
 
@@ -165,8 +176,8 @@ The goal is to let others train their own agents and compete in a round-robin to
 1. ✅ Tic Tac Toe — complete
 2. ✅ Ultimate Tic Tac Toe — complete
 3. ✅ Mancala — complete
-4. 🔜 Connect Four — next
-5. Continue Phase 1 board games through Checkers (all trained against random)
+4. ✅ Connect Four — complete
+5. 🔜 Gomoku — next. Continue Phase 1 through Checkers (all trained against random)
 6. Phase 1.5 — revisit all Phase 1 games with generational training
 7. Build web frontend after Phase 1.5 is proven on at least one game
 8. Phase 2 (AlphaZero: UTTT + Chess) after Phase 1.5
