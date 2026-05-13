@@ -51,7 +51,6 @@ def human_vs_human():
 
 def human_vs_ai():
     env = UltimateTicTacToeEnvironment()
-    state = env.reset()
     agent = DeepClanker(91, 81)
     agent.load("UltimateTicTacToe/stashed_models/ultimate_tictactoe_7.2.pth")
     agent.epsilon = 0.0

@@ -1,7 +1,7 @@
 import random
 
 from clanker import DeepClanker
-from ConnectFour.connect_four_env import ConnectFourEnv
+from ConnectFour.connect_four_env import ConnectFourEnvironment
 
 def main():
     multiplayer = None
@@ -15,7 +15,7 @@ def main():
             print("Invalid input. Please enter 1 or 2.")
 
 def human_vs_human():
-    env = ConnectFourEnv()
+    env = ConnectFourEnvironment()
     playing = True
     while playing:
         state = env.reset()
@@ -46,7 +46,7 @@ def human_vs_human():
             playing = False
 
 def human_vs_ai():
-    env = ConnectFourEnv()
+    env = ConnectFourEnvironment()
     agent = DeepClanker(42, 7)
     agent.load("ConnectFour/stashed_models/connect_four_deep.pth")
     agent.epsilon = 0.0

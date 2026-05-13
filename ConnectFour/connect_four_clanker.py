@@ -1,11 +1,11 @@
 from clanker import DeepClanker
-from ConnectFour.connect_four_env import ConnectFourEnv
+from ConnectFour.connect_four_env import ConnectFourEnvironment
 
 EVAL_EPISODES = 1000
 TRAIN_EPISODES = 100000
 
 def main():
-    env = ConnectFourEnv()
+    env = ConnectFourEnvironment()
     epsilon_decay = .01 ** (1 / (0.8 * TRAIN_EPISODES))
     deep_agent = DeepClanker(42, 7, epsilon_decay=epsilon_decay)
     deep_agent.train(env, episodes=TRAIN_EPISODES)

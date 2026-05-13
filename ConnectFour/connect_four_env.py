@@ -1,7 +1,7 @@
 from general_environment import GeneralEnvironment
 
 
-class ConnectFourEnv(GeneralEnvironment):
+class ConnectFourEnvironment(GeneralEnvironment):
 
     def __init__(self):
         self.board = [[0] * 7 for _ in range(6)]

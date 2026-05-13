@@ -24,7 +24,14 @@ def human_vs_human():
 
         while not done:
             env.render()
-            action = int(input(f"Player {current_player}, enter your move (0-8): "))
+            legal_actions = env.get_legal_actions()
+            invalid_move = True
+            while invalid_move:
+                action = int(input(f"Player {current_player}, enter your move (0-8): "))
+                if action not in legal_actions:
+                    print("Invalid move. Try again.")
+                else:
+                    invalid_move = False
             state, reward, done = env.step(action)
             current_player = 2 if current_player == 1 else 1
 
@@ -40,7 +47,6 @@ def human_vs_human():
 
 def human_vs_ai():
     env = TicTacToeEnvironment()
-    state = env.reset()
     agent = TableClanker()
     agent.train(env, episodes=100000)
     # agent = DeepClanker(9, 9)
