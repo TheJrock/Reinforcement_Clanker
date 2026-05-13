@@ -131,6 +131,35 @@ Vanilla DQN with self-play failed to converge on UTTT despite extensive tuning. 
 
 ---
 
+## Friend/Family Agent Challenge
+
+The goal is to let others train their own agents and compete in a round-robin tournament. The challenge is fun but requires upfront design decisions to keep it fair.
+
+### Fairness Concerns
+
+- **Compute disparity** — the biggest risk. Someone with a GPU or cloud instance can far outrun someone on a laptop CPU. Set a stated compute budget (e.g. "max 2 hours on consumer hardware") so the competition rewards agent design, not hardware access.
+- **Training against a known opponent** — if participants know whose agent they'll face, they can overfit to exploit that specific agent's weaknesses rather than learning generally strong play. Use a round-robin format and don't reveal matchups until submission closes.
+- **Non-RL approaches** — nothing in a callable interface prevents someone from submitting a minimax or MCTS agent with a handcrafted evaluation function. For games like UTTT, a well-tuned minimax is a fundamentally different class of solver. Decide upfront whether that's allowed.
+- **Evaluation variance** — stochastic policies need many games per matchup to produce stable rankings. Run at minimum 100 games per pair, alternating who plays first, to average out first-mover advantage.
+- **Verification** — hard to enforce, but be aware that someone could hardcode a lookup table or rules engine behind the `.pth` interface. Inspect submitted code if it matters.
+
+### Implementation Steps
+
+1. **Define a standard `Agent` interface** — a base class (or protocol) that everyone must subclass. At minimum: `__init__(self, game)` and `act(self, state) -> action`. This is the contract the tournament runner depends on; it should not expose training internals.
+2. **Build an eval-only `Clanker` wrapper** — a stripped-down class that loads a `.pth` file and exposes only `act`. No optimizer, no replay buffer, no `train` method. This is what gets shared publicly so participants can test their agents against yours without seeing your training code.
+3. **Standardize input/output format** — document exactly what `state` looks like for each game (shape, dtype, encoding) and what a valid `action` is. Without this, submissions will be incompatible.
+4. **Build a tournament runner** — a script that accepts a directory of submitted agents, runs every pair round-robin for N games (alternating sides), and produces a win/loss/draw matrix and Elo-style ranking. Keep it deterministic (seed RNG) so results are reproducible.
+5. **Add a submission validator** — before the tournament, run each submitted agent against a known-weak random agent to confirm it loads, produces valid actions, and doesn't crash or timeout. Reject invalid submissions early.
+6. **Set and document rules clearly before opening submissions:**
+   - Compute budget (hours, hardware class)
+   - Whether non-RL approaches are allowed
+   - Which games are in scope
+   - Submission format (`.pth` + agent class file)
+   - Deadline and how matchups are revealed
+7. **Host results** — after the tournament, publish the win/loss matrix and Elo rankings on the web frontend. A simple static page or Streamlit app is enough.
+
+---
+
 ## Current Status & Next Steps
 
 1. ✅ Tic Tac Toe — complete
