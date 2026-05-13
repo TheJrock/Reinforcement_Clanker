@@ -17,7 +17,7 @@ All games are two-player. Agents train via self-play. States are always from the
 | # | Game | Agent | Status |
 |---|---|---|---|
 | 1 | Tic Tac Toe | `TableClanker` | ✅ Complete — converges to 100% draws vs self, zero losses vs random |
-| 2 | Ultimate Tic Tac Toe | `DeepClanker` | ⏸ Paused — shelved for Phase 1.5 revisit with generational training |
+| 2 | Ultimate Tic Tac Toe | `DeepClanker` | ✅ Complete — 85.8% win rate vs random after 100k episodes (7.3% losses, 6.9% draws). Outperformed Mancala despite greater complexity. Previous failures were entirely due to implementation bugs, not game difficulty. |
 | 3 | Mancala (Kalah, 6-pit) | `DeepClanker` | ✅ Complete — 73.6% win rate vs random after 100k episodes. 1000/1000 draws vs self (confirms correct state normalization and Nash convergence). Generalization problem confirmed: less-trained agents beat more-trained due to determinism exploitation — expected, addressed in Phase 1.5. |
 | 4 | Connect Four | `DeepClanker` | 🔜 Next |
 | 5 | Gomoku (5-in-a-row, 15×15) | `DeepClanker` | Not started |
@@ -107,8 +107,8 @@ Vanilla DQN with self-play failed to converge on UTTT despite extensive tuning. 
 - **Root cause:** UTTT is too complex for vanilla DQN self-play. DQN was designed for single-player games (Atari). Two-player self-play creates non-stationarity far beyond what the target network can handle — both the environment and the opponent change simultaneously.
 - **Training against random is insufficient:** Random opponents generate low-quality, inconsistent experiences. The agent never learns to handle coherent strategic threats.
 - **Things tried that didn't fix it:** slower epsilon decay, larger replay buffer (100k→500k), lower learning rate, higher target update frequency, only learning on self's turns, next_state perspective fixes.
-- **Newly discovered:** the `play` loop was missing `turn += 1` throughout all prior training runs. This meant turn was frozen at its initial random value — in 50% of episodes the agent acted for both sides (and the retroactive -1 signal never fired), in the other 50% random acted and the agent learned nothing. TTT converged anyway due to its simplicity. It is worth re-attempting UTTT with vanilla DQN after the turn bug is fixed and Mancala is complete.
-- **Promising ideas for the UTTT revisit:**
+- **Resolution:** all bugs were fixed (turn tracking via `current_player`, per-transition negate in replay buffer, non-terminal learning, 0/0.5/1 state encoding). Result: 85.8% win rate vs random at 100k episodes. DQN handles UTTT well with a correct implementation — the prior failures were entirely due to bugs, not game complexity.
+- **Remaining ideas for Phase 1.5 revisit:**
   - **Frozen target network as opponent:** use `target_network` to select opponent moves during training — provides a stable, consistent opponent that improves gradually. This is essentially what AlphaZero does.
   - **Generational training (league play):** train against random → save checkpoint → train against checkpoint → repeat. Each generation fights a meaningful opponent. Used by OpenAI Five and AlphaStar.
 - **State:** flat tuple of 91 values (81 cells + 9 meta-board + 1 active board index). Actions: 0–80 flat integers (`board_index * 9 + cell_index`).
@@ -134,7 +134,7 @@ Vanilla DQN with self-play failed to converge on UTTT despite extensive tuning. 
 ## Current Status & Next Steps
 
 1. ✅ Tic Tac Toe — complete
-2. ⏸ Ultimate Tic Tac Toe — shelved, revisit in Phase 1.5 with generational training
+2. ✅ Ultimate Tic Tac Toe — complete
 3. ✅ Mancala — complete
 4. 🔜 Connect Four — next
 5. Continue Phase 1 board games through Checkers (all trained against random)

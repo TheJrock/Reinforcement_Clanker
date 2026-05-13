@@ -2,7 +2,7 @@ from clanker import DeepClanker
 from UltimateTicTacToe.ultimate_tic_tac_toe_env import UltimateTicTacToeEnvironment
 
 EVAL_EPISODES = 1000
-TRAIN_EPISODES = 10
+TRAIN_EPISODES = 100000
 
 def main():
     env = UltimateTicTacToeEnvironment()
