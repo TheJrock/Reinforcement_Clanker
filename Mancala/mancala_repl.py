@@ -48,8 +48,10 @@ def human_vs_human():
 def human_vs_ai():
     env = MancalaEnvironment()
     agent = DeepClanker(14, 6)
-    agent.load("Mancala/stashed_models/mancala_2.3.pth")
+    agent.load("Mancala/stashed_models/mancala_2.4.pth")
     agent.epsilon = 0.0
+    # counts = agent.evaluate(env, episodes=1000, verbose=False)
+    # print(f"AI evaluation against random: {counts}")
     playing = True
 
     while playing:

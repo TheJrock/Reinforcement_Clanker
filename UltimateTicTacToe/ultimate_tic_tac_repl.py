@@ -28,7 +28,7 @@ def human_vs_human():
             invalid_move = True
             board_num = state[-1]
             while invalid_move:
-                if board_num == -1:
+                if board_num == 9:
                     board_num = int(input("You can play in any board. Enter the board number (0-8): "))
                 cell = int(input(f"Playing in board {board_num}, enter your move (0-8): "))
                 action = board_num * 9 + cell
@@ -53,7 +53,7 @@ def human_vs_ai():
     env = UltimateTicTacToeEnvironment()
     state = env.reset()
     agent = DeepClanker(91, 81)
-    agent.load("stashed_deep_models/UTTT/ultimate_tictactoe_6.0.pth")
+    agent.load("UltimateTicTacToe/stashed_models/ultimate_tictactoe_7.2.pth")
     agent.epsilon = 0.0
     playing = True
 
@@ -72,7 +72,7 @@ def human_vs_ai():
                 invalid_move = True
                 board_num = state[-1]
                 while invalid_move:
-                    if board_num == -1:
+                    if board_num == 9:
                         board_num = int(input("You can play in any board. Enter the board number (0-8): "))
                     cell = int(input(f"Playing in board {board_num}, enter your move (0-8): "))
                     action = board_num * 9 + cell

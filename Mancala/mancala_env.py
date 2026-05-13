@@ -74,12 +74,20 @@ class MancalaEnvironment(GeneralEnvironment):
 
     def render(self):
         b = [abs(v) for v in self.board]
-        p2_pits = [b[i] for i in range(12, 6, -1)]
-        p1_pits = [b[i] for i in range(0, 6)]
-        sep   = "+------+----+----+----+----+----+----+------+"
+        if self.current_player == 1:
+            top_pits    = [b[i] for i in range(12, 6, -1)]
+            bottom_pits = [b[i] for i in range(0, 6)]
+            left_store, right_store = b[13], b[6]
+            top_label, bottom_label = "P2", "P1"
+        else:
+            top_pits    = [b[i] for i in range(5, -1, -1)]
+            bottom_pits = [b[i] for i in range(7, 13)]
+            left_store, right_store = b[6], b[13]
+            top_label, bottom_label = "P1", "P2"
+        sep = "+------+----+----+----+----+----+----+------+"
         print(sep)
-        print(f"|  P2  | {' | '.join(f'{v:2}' for v in p2_pits)} |  P1  |")
-        print(f"| {b[13]:4} | {'   | ' * 6}  {b[6]:3} |")
-        print(f"|      | {' | '.join(f'{v:2}' for v in p1_pits)} |      |")
+        print(f"|  {top_label}  | {' | '.join(f'{v:2}' for v in top_pits)} |  {bottom_label}  |")
+        print(f"| {left_store:4} |{'    |' * 6}  {right_store:3} |")
+        print(f"|      | {' | '.join(f'{v:2}' for v in bottom_pits)} |      |")
         print(sep)
         print()

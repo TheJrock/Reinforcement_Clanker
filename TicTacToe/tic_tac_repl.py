@@ -1,6 +1,6 @@
 import random
 
-from clanker import TableClanker
+from clanker import DeepClanker, TableClanker
 from TicTacToe.tic_tac_toe_env import TicTacToeEnvironment
 
 def main():
@@ -43,6 +43,8 @@ def human_vs_ai():
     state = env.reset()
     agent = TableClanker()
     agent.train(env, episodes=100000)
+    # agent = DeepClanker(9, 9)
+    # agent.load("TicTacToe/stashed_models/tictactoe_2.3.pth")
     agent.epsilon = 0.0
     playing = True
 
@@ -64,7 +66,10 @@ def human_vs_ai():
         
         env.render()
         if reward == 1:
-            print(f"Player {2 if current_player == 1 else 1} wins!")
+            if current_player == 2:
+                print("Congratulations! You win!")
+            else:
+                print("AI wins! Better luck next time.")
         else:
             print("It's a draw!")
         
