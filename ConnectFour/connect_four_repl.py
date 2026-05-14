@@ -48,7 +48,7 @@ def human_vs_human():
 def human_vs_ai():
     env = ConnectFourEnvironment()
     agent = DeepClanker(42, 7)
-    agent.load("ConnectFour/stashed_models/connect_four_deep.pth")
+    agent.load("ConnectFour/stashed_models/connect_four_1.5.pth")
     agent.epsilon = 0.0
     # counts = agent.evaluate(env, episodes=1000, verbose=False)
     # print(f"AI evaluation against random: {counts}")

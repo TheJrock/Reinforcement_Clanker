@@ -20,7 +20,7 @@ All games are two-player. Agents train via self-play. States are always from the
 | 2 | Ultimate Tic Tac Toe | `DeepClanker` | ✅ Complete — 85.8% win rate vs random after 100k episodes (7.3% losses, 6.9% draws). Outperformed Mancala despite greater complexity. Previous failures were entirely due to implementation bugs, not game difficulty. |
 | 3 | Mancala (Kalah, 6-pit) | `DeepClanker` | ✅ Complete — 73.6% win rate vs random after 100k episodes. 1000/1000 draws vs self (confirms correct state normalization and Nash convergence). Generalization problem confirmed: less-trained agents beat more-trained due to determinism exploitation — expected, addressed in Phase 1.5. |
 | 4 | Connect Four | `DeepClanker` | ✅ Complete — 97.1% win rate vs random after 100k episodes (2.9% losses, 0% draws). Strong result; DQN ceiling estimated at ~98-99%. AlphaZero revisit planned in Phase 2. |
-| 5 | Gomoku (5-in-a-row, 15×15) | `DeepClanker` | Not started |
+| 5 | Gomoku (5-in-a-row, 15×15) | `DeepClanker` | ✅ Complete — 99.9% win rate vs random after 10k episodes (0 draws). Ceiling against random hit by 100 episodes (98%); 10k adds marginal gain. Environment refactored to numpy for ~4x eval speedup. 100k run skipped — unnecessary. |
 | 6 | Othello | `DeepClanker` | Not started |
 | 7 | Checkers | `DeepClanker` | Not started |
 
@@ -177,7 +177,8 @@ The goal is to let others train their own agents and compete in a round-robin to
 2. ✅ Ultimate Tic Tac Toe — complete
 3. ✅ Mancala — complete
 4. ✅ Connect Four — complete
-5. 🔜 Gomoku — next. Continue Phase 1 through Checkers (all trained against random)
+5. ✅ Gomoku — complete
+6. 🔜 Othello — next. Continue Phase 1 through Checkers (all trained against random)
 6. Phase 1.5 — revisit all Phase 1 games with generational training
 7. Build web frontend after Phase 1.5 is proven on at least one game
 8. Phase 2 (AlphaZero: UTTT + Chess) after Phase 1.5
