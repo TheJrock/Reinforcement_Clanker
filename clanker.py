@@ -63,8 +63,8 @@ class Clanker(ABC):
                     self.learn(state, action, reward, next_state, done, negate=environment.current_player != agent_player)
                     self_prev_state = state
                     self_prev_action = action
-                elif done and reward == 1 and self_prev_state is not None:
-                    self.learn(self_prev_state, self_prev_action, -1, state, True)
+                elif done and self_prev_state is not None:
+                    self.learn(self_prev_state, self_prev_action, -reward, state, True)
             state = next_state
             if verbose: environment.render()
 

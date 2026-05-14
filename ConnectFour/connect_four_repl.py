@@ -74,7 +74,7 @@ def human_vs_ai():
                 state, reward, done = env.step(pit)
             else:
                 action = agent.act(state, legal_actions)
-                print(f"AI chooses pit {action}.")
+                print(f"AI chooses slot {action}.")
                 state, reward, done = env.step(action)
 
         env.render()
