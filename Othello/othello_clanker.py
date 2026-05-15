@@ -2,12 +2,12 @@ from clanker import DeepClanker
 from Othello.othello_env import OthelloEnvironment
 
 EVAL_EPISODES = 1000
-TRAIN_EPISODES = 1000
+TRAIN_EPISODES = [1, 10, 100, 1000, 10000, 100000]
 
 def main():
     env = OthelloEnvironment()
 
-    for batch_size in [1, 10, 100, 1000, 10000, 100000]:
+    for batch_size in TRAIN_EPISODES:
         epsilon_decay = .01 ** (1 / (0.8 * batch_size))
         deep_agent = DeepClanker(env.board_size ** 2, env.board_size ** 2, epsilon_decay=epsilon_decay, n_steps=3)
         deep_agent.train(env, episodes=batch_size)
