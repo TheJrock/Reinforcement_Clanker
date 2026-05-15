@@ -21,7 +21,7 @@ All games are two-player. Agents train via self-play. States are always from the
 | 3 | Mancala (Kalah, 6-pit) | `DeepClanker` | ✅ Complete — 73.6% win rate vs random after 100k episodes. 1000/1000 draws vs self (confirms correct state normalization and Nash convergence). Generalization problem confirmed: less-trained agents beat more-trained due to determinism exploitation — expected, addressed in Phase 1.5. |
 | 4 | Connect Four | `DeepClanker` | ✅ Complete — 97.1% win rate vs random after 100k episodes (2.9% losses, 0% draws). Strong result; DQN ceiling estimated at ~98-99%. AlphaZero revisit planned in Phase 2. |
 | 5 | Gomoku (5-in-a-row, 15×15) | `DeepClanker` | ✅ Complete — 99.9% win rate vs random after 10k episodes (0 draws). Ceiling against random hit by 100 episodes (98%); 10k adds marginal gain. Environment refactored to numpy for ~4x eval speedup. 100k run skipped — unnecessary. |
-| 6 | Othello | `DeepClanker` | Not started |
+| 6 | Othello | `DeepClanker` | ⚠️ DQN insufficient — performance degrades with more training (49.2% at 1k → 28.1% at 10k vs random). Root causes: (1) determinism exploitation — greedy policy converges to a locally optimal but globally terrible strategy even against random; (2) 55-move average game length makes Bellman credit assignment too noisy over long chains; (3) highly dynamic state (pieces flip constantly) makes Q-value landscape non-stationary. A clanker.py bug (asymmetric retroactive reward) was identified and fixed during this phase — the fix was correct but insufficient to overcome DQN's fundamental mismatch with Othello. Skipping Phase 1.5 for Othello; moving directly to Phase 2 (AlphaZero). |
 | 7 | Checkers | `DeepClanker` | Not started |
 
 Rock Paper Scissors was considered and rejected — no board state, optimal policy is a mixed Nash equilibrium that Q-learning can't represent.
@@ -51,7 +51,7 @@ All Phase 1 games will be revisited in this phase after the full Phase 1 sweep i
 | 3 | Mancala | Not started |
 | 4 | Connect Four | Not started |
 | 5 | Gomoku | Not started |
-| 6 | Othello | Not started |
+| 6 | Othello | Skipped — DQN insufficient, going directly to Phase 2 (AlphaZero) |
 | 7 | Checkers | Not started |
 
 ---
@@ -127,6 +127,18 @@ Vanilla DQN with self-play failed to converge on UTTT despite extensive tuning. 
 
 ---
 
+## Othello — Post-mortem Notes
+
+DQN failed to learn meaningful Othello play despite correct implementation. Performance degraded with more training (49.2% at 1k → 28.1% at 10k vs random).
+
+- **Root cause 1 — Credit assignment:** Othello games average ~55 moves. Bellman backup accumulates too much noise propagating a terminal reward over 50+ steps. DQN's single-step bootstrapping is not equipped for games this long.
+- **Root cause 2 — Determinism exploitation:** As epsilon decays, the agent converges to a fixed greedy policy. In Othello, greedy play (maximize immediate flips) is a well-known beginner trap — it consistently hands the opponent corners and edges. Even random opponents punish this reliably.
+- **Root cause 3 — Non-stationary state space:** Every move can flip many pieces simultaneously. Q-values for board positions become unreliable because the same board position can arise from radically different histories with very different future values.
+- **Bug discovered and fixed:** `clanker.py` had an asymmetric retroactive reward — the agent received `-1` for its previous action when the opponent won, but no `+1` when the opponent lost. Fixed to `learn(prev_state, prev_action, -reward, state, True)` which handles both cases. This also improved Mancala. The fix was correct but insufficient to overcome DQN's fundamental limitations on Othello.
+- **Resolution:** Othello skips Phase 1.5 and goes directly to Phase 2 (AlphaZero). MCTS naturally addresses all three root causes — deep lookahead handles credit assignment, tree search prevents premature policy collapse, and neural network guidance generalizes across the dynamic state space.
+
+---
+
 ## Known Fragilities
 
 - **`TableClanker.load`** parses state tuples from Python's default `str(tuple)` format (e.g. `"(0, 1, -1)"`). Relies on `', '` as separator and single-digit integers. Works for all planned games but would break if states ever contain multi-digit values or different formatting.
@@ -178,8 +190,9 @@ The goal is to let others train their own agents and compete in a round-robin to
 3. ✅ Mancala — complete
 4. ✅ Connect Four — complete
 5. ✅ Gomoku — complete
-6. 🔜 Othello — next. Continue Phase 1 through Checkers (all trained against random)
-6. Phase 1.5 — revisit all Phase 1 games with generational training
-7. Build web frontend after Phase 1.5 is proven on at least one game
-8. Phase 2 (AlphaZero: UTTT + Chess) after Phase 1.5
-9. Phase 3 (card games) and Phase 4 (continuous control) are long-term goals
+6. ⚠️ Othello — DQN insufficient, skipping to Phase 2
+7. 🔜 Checkers — next
+8. Phase 1.5 — revisit Phase 1 games with generational training (excluding Othello)
+9. Build web frontend after Phase 1.5 is proven on at least one game
+10. Phase 2 (AlphaZero) after Phase 1.5
+11. Phase 3 (card games) and Phase 4 (continuous control) are long-term goals

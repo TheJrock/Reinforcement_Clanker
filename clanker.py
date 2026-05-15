@@ -64,11 +64,14 @@ class Clanker(ABC):
                     self_prev_state = state
                     self_prev_action = action
                 elif done and self_prev_state is not None:
-                    self.learn(self_prev_state, self_prev_action, -reward, state, True)
+                    self._on_opponent_terminal(self_prev_state, self_prev_action, -reward, state)
             state = next_state
             if verbose: environment.render()
 
         return reward, agent_player
+
+    def _on_opponent_terminal(self, prev_state, prev_action, reward, final_state):
+        self.learn(prev_state, prev_action, reward, final_state, True)
 
     def update_epsilon(self):
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
@@ -102,11 +105,11 @@ class TableClanker(Clanker):
         super().__init__(epsilon, alpha, gamma, epsilon_min, epsilon_decay)
         self.q_table = {}
 
-    
+
     def get_best_action(self, state, legal_actions):
         if state not in self.q_table:
             self.q_table[state] = {action: 0.0 for action in legal_actions}
-        
+
         best_action = max(legal_actions, key=lambda action: self.q_table[state].get(action, 0.0))
         return best_action
 
@@ -142,19 +145,21 @@ class DeepClanker(Clanker):
                  epsilon_decay=0.99999,
                  gpu_device=None,
                  buffer_size=100000,
-                 activation="leaky_relu"):
+                 activation="leaky_relu",
+                 n_steps=1):
         super().__init__(epsilon, alpha, gamma, epsilon_min, epsilon_decay)
         self.network = HoloNet(input_size, output_size, hidden_layers, activation=activation)
         self.target_network = HoloNet(input_size, output_size, hidden_layers, activation=activation)
         self.target_network.load_state_dict(self.network.state_dict())
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=alpha)
         self.loss_fn = nn.MSELoss()
-        self.replay_buffer = collections.deque(maxlen=buffer_size
-        )
+        self.replay_buffer = collections.deque(maxlen=buffer_size)
         self.steps = 0
         self.batch_size = batch_size
         self.update_freq = update_freq
         self.min_replay_size = min_replay_size or batch_size
+        self.n_steps = n_steps
+        self._n_step_buffer = collections.deque()
 
         if gpu_device is None:
             if torch.backends.mps.is_available():
@@ -176,20 +181,57 @@ class DeepClanker(Clanker):
         return best_action
 
     def learn(self, state, action, reward, next_state, done, negate=True):
-        self.replay_buffer.append((state, action, reward, next_state, done, negate))
+        self._n_step_buffer.append((state, action, reward, next_state, done, negate))
+        if done:
+            self._flush_n_step(force=True)
+        elif len(self._n_step_buffer) >= self.n_steps:
+            self._flush_n_step()
+
+    def _on_opponent_terminal(self, _prev_state, _prev_action, reward, final_state):
+        if self._n_step_buffer:
+            s, a, _, _, _, _ = self._n_step_buffer.pop()
+            self._n_step_buffer.append((s, a, reward, final_state, True, True))
+        self._flush_n_step(force=True)
+
+    def _flush_n_step(self, force=False):
+        while self._n_step_buffer and (len(self._n_step_buffer) >= self.n_steps or force):
+            G = 0.0
+            compound_sign = 1.0
+            final_next_state = None
+            final_done = False
+            steps_taken = 0
+
+            for k, (_, _, r, s_next, done, negate) in enumerate(self._n_step_buffer):
+                if k >= self.n_steps:
+                    break
+                G += (self.gamma ** k) * compound_sign * r
+                final_next_state = s_next
+                steps_taken = k + 1
+                if done:
+                    final_done = True
+                    break
+                compound_sign *= (-1.0 if negate else 1.0)
+
+            state, action = self._n_step_buffer[0][0], self._n_step_buffer[0][1]
+            self.replay_buffer.append((state, action, G, final_next_state, final_done, compound_sign < 0, self.gamma ** steps_taken))
+            self._n_step_buffer.popleft()
+            self._train_step()
+
+    def _train_step(self):
         if len(self.replay_buffer) < self.min_replay_size:
             return
         batch = random.sample(self.replay_buffer, self.batch_size)
-        states, actions, rewards, next_states, dones, negates = zip(*batch)
+        states, actions, rewards, next_states, dones, negates, gamma_ns = zip(*batch)
         states = torch.tensor(states, dtype=torch.float32).to(self.gpu_device)
         actions = torch.tensor(actions, dtype=torch.int64).to(self.gpu_device)
         rewards = torch.tensor(rewards, dtype=torch.float32).to(self.gpu_device)
         next_states = torch.tensor(next_states, dtype=torch.float32).to(self.gpu_device)
         dones = torch.tensor(dones, dtype=torch.float32).to(self.gpu_device)
         signs = torch.tensor([-1.0 if n else 1.0 for n in negates], dtype=torch.float32).to(self.gpu_device)
+        gamma_ns = torch.tensor(gamma_ns, dtype=torch.float32).to(self.gpu_device)
         with torch.no_grad():
             max_next_q = self.target_network(next_states).max(dim=1).values
-            targets = rewards + self.gamma * signs * max_next_q * (1 - dones)
+            targets = rewards + gamma_ns * signs * max_next_q * (1 - dones)
         predicted_q = self.network(states).gather(1, actions.unsqueeze(1)).squeeze(1)
         loss = self.loss_fn(predicted_q, targets)
         self.optimizer.zero_grad()
