@@ -187,10 +187,12 @@ class DeepClanker(Clanker):
         elif len(self._n_step_buffer) >= self.n_steps:
             self._flush_n_step()
 
-    def _on_opponent_terminal(self, _prev_state, _prev_action, reward, final_state):
+    def _on_opponent_terminal(self, prev_state, prev_action, reward, final_state):
         if self._n_step_buffer:
             s, a, _, _, _, _ = self._n_step_buffer.pop()
             self._n_step_buffer.append((s, a, reward, final_state, True, True))
+        else:
+            self._n_step_buffer.append((prev_state, prev_action, reward, final_state, True, True))
         self._flush_n_step(force=True)
 
     def _flush_n_step(self, force=False):

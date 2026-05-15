@@ -9,7 +9,7 @@ def main():
 
     for batch_size in [1, 10, 100, 1000, 10000, 100000]:
         epsilon_decay = .01 ** (1 / (0.8 * batch_size))
-        deep_agent = DeepClanker(env.board_size ** 2, env.board_size ** 2, epsilon_decay=epsilon_decay)
+        deep_agent = DeepClanker(env.board_size ** 2, env.board_size ** 2, epsilon_decay=epsilon_decay, n_steps=3)
         deep_agent.train(env, episodes=batch_size)
         deep_agent.save(f"Othello/stashed_models/othello_{batch_size}.pth")
         # deep_agent.load("Othello/stashed_models/othello_1.4.pth")
