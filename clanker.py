@@ -198,24 +198,24 @@ class DeepClanker(Clanker):
     def _flush_n_step(self, force=False):
         while self._n_step_buffer and (len(self._n_step_buffer) >= self.n_steps or force):
             G = 0.0
-            compound_sign = 1.0
             final_next_state = None
             final_done = False
+            final_negate = False
             steps_taken = 0
 
             for k, (_, _, r, s_next, done, negate) in enumerate(self._n_step_buffer):
                 if k >= self.n_steps:
                     break
-                G += (self.gamma ** k) * compound_sign * r
+                G += (self.gamma ** k) * r
                 final_next_state = s_next
+                final_negate = negate
                 steps_taken = k + 1
                 if done:
                     final_done = True
                     break
-                compound_sign *= (-1.0 if negate else 1.0)
 
             state, action = self._n_step_buffer[0][0], self._n_step_buffer[0][1]
-            self.replay_buffer.append((state, action, G, final_next_state, final_done, compound_sign < 0, self.gamma ** steps_taken))
+            self.replay_buffer.append((state, action, G, final_next_state, final_done, final_negate, self.gamma ** steps_taken))
             self._n_step_buffer.popleft()
             self._train_step()
 
