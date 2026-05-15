@@ -105,6 +105,27 @@ Transition from discrete board games to continuous state and action spaces. Uses
 | 3 | LunarLander | Continuous or discrete. Good intermediate challenge. |
 | 4 | BipedalWalker | Harder continuous control. Good pre-robotics challenge. |
 
+### Multi-Agent Adversarial — Orbit Wars
+
+Orbit Wars (Kaggle competition environment) is a Planet Wars-style RTS on a 100×100 continuous board. Players launch fleets from owned planets to capture neutral and enemy planets; the player with the most total ships after 500 turns wins. The environment is provided via `kaggle-environments` (`pip install "kaggle-environments>=1.28.0"`), so no simulation work is needed — focus is entirely on the agent.
+
+This is the bridge between single-agent control and the Robot Arena goal: continuous state, semi-continuous actions (angle is a float, ship count is integer), adversarial multi-agent (1v1 and 4-player FFA), and complex physics (orbiting planets, sun collision, logarithmic fleet speed scaling).
+
+**Why it matters:** breaks all Phase 1–3 assumptions simultaneously — not two-player, not turn-based, not discrete state, not negamax-compatible. Forces development of multi-agent PPO self-play and a proper continuous-space pipeline before tackling the Robot Arena.
+
+**Key challenges:**
+- **Orbit prediction:** inner planets rotate at a fixed angular velocity; fleets must be aimed at where the planet *will be*, not where it is. Use `initial_planets` + `angular_velocity` + elapsed turns to compute future positions.
+- **Semi-continuous actions:** angle is a float (0–2π), ship count is a positive integer, source planet is a discrete choice. Action space is a mix — use a hybrid head or discretize angle into N bins.
+- **Multi-agent self-play:** 4-player FFA breaks two-player negamax. Use independent PPO (each agent trains against the others) or centralized training with decentralized execution (CTDE). Start with 1v1.
+- **Turn budget:** 1 second per turn. Inference must be fast — no MCTS at decision time unless heavily pruned.
+- **Reward shaping:** terminal reward (ship count at step 500) is very sparse over 500 turns. Intermediate rewards needed: +ships_gained_from_capture, -ships_lost_in_combat, +production_rate_delta.
+
+**Recommended build order:**
+1. **Heuristic baseline** — greedy expansion (capture nearest low-garrison planet), threat response (reinforce under-attack planets), orbit-aware aiming. Establishes a non-trivial opponent to train against and a performance floor.
+2. **PPO 1v1** — train a PPO agent against the heuristic, then via self-play. Validates the continuous-space pipeline.
+3. **PPO 4-player FFA** — extend to multi-agent once 1v1 is stable.
+4. **Kaggle competition submission** — the environment is a recurring Kaggle challenge; a mature agent can be submitted whenever the competition runs again.
+
 ### Long-term Goal — Robot Arena
 
 Inspired by a VEX Robotics-style competition: two robots collect rings and place them on poles in an arena before time runs out.
