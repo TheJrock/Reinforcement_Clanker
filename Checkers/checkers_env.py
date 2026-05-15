@@ -40,27 +40,36 @@ class CheckersEnvironment(GeneralEnvironment):
     def __init__(self):
         self.board = [1] * 12 + [0] * 8 + [-1] * 12
         self.current_player = 1
-        self._init_board()
-
-    def _init_board(self):
-        for row in range(3):
-            for col in range(8):
-                if (row + col) % 2 == 1:
-                    self.board[row][col] = -1  # opponent (White)
-        for row in range(5, 8):
-            for col in range(8):
-                if (row + col) % 2 == 1:
-                    self.board[row][col] = 1  # current player (Black)
+        self.chained_capture_index = None
 
     def reset(self):
-        self.board = [[0] * self.board_size for _ in range(self.board_size)]
+        self.board = [1] * 12 + [0] * 8 + [-1] * 12
         self.current_player = 1
-        self._init_board()
+        self.chained_capture_index = None
         return self._to_agent_state()
 
     def _to_agent_state(self):
-        return tuple((cell + 1) / 2 for row in self.board for cell in row)
+        board_state = tuple((cell + 1) / 2 for cell in self.board)
+        chain = 0 if self.chained_capture_index is None else (self.chained_capture_index + 1) / 32
+        return board_state + (chain,)
 
     def step(self, action):
-        # Placeholder: Implement move logic, captures, kinging, and game over conditions
-        raise NotImplementedError("Move logic not implemented yet")
+        start_index, end_index = divmod(action, 32)
+
+    def get_legal_actions(self):
+        forward_directions = (0, 1) if self.current_player == 1 else (2, 3)
+        starting_indices = [i for i, cell in enumerate(self.board) if cell == self.current_player]
+        if self.chained_capture_index is not None:
+            starting_indices = [self.chained_capture_index]
+        simple_moves = []
+        captures = []
+        for start in starting_indices:
+            for direction in forward_directions:
+                neighbor = self.NEIGHBORS[start][direction]
+                if neighbor is not None and self.board[neighbor] == 0:
+                    simple_moves.append(start * 32 + neighbor)
+                elif neighbor is not None and self.board[neighbor] == -self.current_player:
+                    jump_neighbor = self.NEIGHBORS[neighbor][direction]
+                    if jump_neighbor is not None and self.board[jump_neighbor] == 0:
+                        captures.append(start * 32 + jump_neighbor)
+        return captures if captures else simple_moves
