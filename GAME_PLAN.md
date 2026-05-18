@@ -17,12 +17,12 @@ All games are two-player. Agents train via self-play. States are always from the
 | # | Game | Agent | Status |
 |---|---|---|---|
 | 1 | Tic Tac Toe | `TableClanker` | ✅ Complete — converges to 100% draws vs self, zero losses vs random |
-| 2 | Ultimate Tic Tac Toe | `DeepClanker` | ✅ Complete — 85.8% win rate vs random after 100k episodes (7.3% losses, 6.9% draws). Outperformed Mancala despite greater complexity. Previous failures were entirely due to implementation bugs, not game difficulty. |
+| 2 | Ultimate Tic Tac Toe | `DeepClanker` | ✅ Complete — best result: 85.8% win rate vs random after 100k episodes with n=1 (7.3% losses, 6.9% draws). Retrain with fixed n=5: 77.7% wins, 11.9% losses, 10.4% draws — draws doubled, overall weaker. n=5 lookahead is counterproductive for UTTT against random: further-ahead bootstrapping introduces variance without reliably pointing toward the terminal. n=1 remains the best Phase 1 result and the recommended starting point for Phase 1.5. Previous failures were entirely due to implementation bugs, not game difficulty. |
 | 3 | Mancala (Kalah, 6-pit) | `DeepClanker` | ✅ Complete — three training runs attempted. Original (buggy retroactive reward, n=1): 73.6% at 100k. Retrain with fix + n=3: 68.0% at 100k. Retrain with fix + n=1: 68.9% at 100k. All fixed runs converge to ~68-69%, suggesting the original 73.6% was a lucky outlier and the true DQN ceiling is ~68-70%. Retroactive fix had negligible impact (opponent rarely ends game on their move in Mancala). n_steps=3 suboptimal — Mancala's extra turns mean 3 agent-moves often fall within one turn sequence with no cross-turn lookahead. Determinism exploitation confirmed: agent peaks at 75.9% after only 100 episodes then degrades to 68.9% at 100k as epsilon decays and greedy policy gets punished. Addressed in Phase 1.5. 1000/1000 draws vs self (confirms correct state normalization and Nash convergence). |
 | 4 | Connect Four | `DeepClanker` | ✅ Complete — 97.1% win rate vs random after 100k episodes (2.9% losses, 0% draws). Strong result; DQN ceiling estimated at ~98-99%. AlphaZero revisit planned in Phase 2. |
 | 5 | Gomoku (5-in-a-row, 15×15) | `DeepClanker` | ✅ Complete — 99.9% win rate vs random after 10k episodes (0 draws). Ceiling against random hit by 100 episodes (98%); 10k adds marginal gain. Environment refactored to numpy for ~4x eval speedup. 100k run skipped — unnecessary. |
-| 6 | Othello | `DeepClanker` | ⚠️ DQN insufficient — performance degrades with more training even after fixes. Two runs: (1) original: 49.2% at 1k → 28.1% at 10k; (2) with n-step returns (n=3): 57.1% at 1k → 42.0% at 10k. N-step partially addressed credit assignment — the degradation is less severe — but the agent still collapses below random at 10k. Root causes: (1) determinism exploitation — as epsilon decays the agent locks into greedy flip-maximizing play, a well-known beginner trap that random opponents reliably punish; (2) 55-move average game length makes Bellman credit assignment too noisy even with n-step; (3) highly dynamic state (pieces flip constantly) makes Q-value landscape non-stationary. A clanker.py bug (asymmetric retroactive reward) was also identified and fixed. Skipping Phase 1.5 for Othello; moving directly to Phase 2 (AlphaZero). |
-| 7 | Checkers | `DeepClanker` | Not started |
+| 6 | Othello | `DeepClanker` | ✅ Complete — 67.0% win rate vs random after 100k episodes (fixed run). Earlier runs showing degradation (57.1% at 1k → 42.0% at 10k) were corrupted by the `_flush_n_step` compound_sign bug, which wrongly negated terminal rewards at odd buffer positions — teaching the agent that winning was bad for ~1/3 of terminal transitions. Fixed run with n=3: chaotic early (42.8% at 1ep, 33.8% at 10ep) but steadily improves to 67.0% at 100k. DQN is genuinely learning Othello strategy; the earlier "DQN insufficient" conclusion was premature. Determinism exploitation against random is still a ceiling — Phase 1.5 (generational training) is the right next step. |
+| 7 | Checkers | `DeepClanker` | ✅ Complete — 77.8% win rate vs random after 100k episodes (12.1% losses, 10.1% draws). Healthy monotonic progression: 46.7% → 51.3% → 54.2% → 58.7% → 76.9% → 77.8% (1/10/100/1k/10k/100k episodes). Same plateau pattern as other games — 10k→100k only gained ~1%, signaling the random-training ceiling. Two critical bugs found and fixed during development: (1) `chained_capture_index` not reset after chain completion caused false terminals after every multi-jump, flooding training with incorrect win/loss signals; (2) `evaluate()` win/loss display was inverted because `step()` flipped the board before checking terminal, leaving `current_player` as the loser rather than the winner — training was unaffected (bootstrap is zeroed at terminal), only the display was wrong. Fixed by flipping back before returning at terminal, matching the convention other environments use. n=5 used (no reason to expect the UTTT counterproductivity to apply here given checkers' longer game length). |
 | 8 | Backgammon | `DeepClanker` | Not started — stochastic environment (dice). DQN handles stochasticity naturally; dice are part of the environment, not the agent's choice. State includes board position + current roll; agent picks from legal moves given that roll. Action space encoded as (from, to) point pairs (~676 possible, masked by `get_legal_actions()`). Environment implementation is the main challenge — rules have significant edge cases (must use both dice if possible, must use higher die if only one playable, bearing off rules, hitting/re-entering from bar). Historical precedent: TD-Gammon (1992) achieved superhuman play using essentially this approach. Expect similar credit assignment challenges to Othello due to long game length (50–200+ moves). n-step returns should help. |
 
 Rock Paper Scissors was considered and rejected — no board state, optimal policy is a mixed Nash equilibrium that Q-learning can't represent.
@@ -52,8 +52,8 @@ All Phase 1 games will be revisited in this phase after the full Phase 1 sweep i
 | 3 | Mancala | Not started |
 | 4 | Connect Four | Not started |
 | 5 | Gomoku | Not started |
-| 6 | Othello | Not started — generational training specifically targets determinism exploitation, the primary DQN failure mode. Worth attempting despite Phase 1 failure; expect a ceiling well below other games but meaningful improvement over random training. |
-| 7 | Checkers | Not started |
+| 6 | Othello | Not started — 67% vs random in Phase 1 confirms DQN is learning real strategy. Generational training targets determinism exploitation, the remaining ceiling. Expect meaningful improvement over the Phase 1 baseline. |
+| 7 | Checkers | Not started — 77.8% vs random in Phase 1. Same plateau pattern as other games; generational training is the right next step. |
 | 8 | Backgammon | Not started |
 
 ---
@@ -156,14 +156,12 @@ Vanilla DQN with self-play failed to converge on UTTT despite extensive tuning. 
 
 ## Othello — Post-mortem Notes
 
-DQN failed to learn meaningful Othello play despite correct implementation. Performance degraded with more training (49.2% at 1k → 28.1% at 10k vs random).
+Early runs showed degradation (49.2% at 1k → 28.1% at 10k, then 57.1% at 1k → 42.0% at 10k with n=3) — both were corrupted by the `_flush_n_step` compound_sign bug. The bug wrongly applied a running perspective-flip sign to intermediate rewards, negating terminal rewards for ~1/3 of terminal transitions (those landing at odd buffer positions). The agent was literally learning "winning is bad" in those cases. Fixed run with n=3: 67.0% at 100k, confirming DQN does learn meaningful Othello strategy given correct signals.
 
-- **Root cause 1 — Credit assignment:** Othello games average ~55 moves. Bellman backup accumulates too much noise propagating a terminal reward over 50+ steps. DQN's single-step bootstrapping is not equipped for games this long.
-- **Root cause 2 — Determinism exploitation:** As epsilon decays, the agent converges to a fixed greedy policy. In Othello, greedy play (maximize immediate flips) is a well-known beginner trap — it consistently hands the opponent corners and edges. Even random opponents punish this reliably.
-- **Root cause 3 — Non-stationary state space:** Every move can flip many pieces simultaneously. Q-values for board positions become unreliable because the same board position can arise from radically different histories with very different future values.
-- **Bug discovered and fixed:** `clanker.py` had an asymmetric retroactive reward — the agent received `-1` for its previous action when the opponent won, but no `+1` when the opponent lost. Fixed to `learn(prev_state, prev_action, -reward, state, True)` which handles both cases. This also improved Mancala. The fix was correct but insufficient to overcome DQN's fundamental limitations on Othello.
-- **N-step returns (n=3) partial improvement:** second run with n-step achieved 57.1% at 1k → 42.0% at 10k, versus 49.2% → 28.1% without. Confirms n-step helped with credit assignment but did not address determinism exploitation — a more accurate Q-value estimate of a bad greedy strategy is still a bad greedy strategy.
-- **Resolution:** Othello skips Phase 1.5 and goes directly to Phase 2 (AlphaZero). MCTS naturally addresses all three root causes — deep lookahead handles credit assignment, tree search prevents premature policy collapse, and neural network guidance generalizes across the dynamic state space.
+- **Bug (fixed) — compound_sign applied to rewards:** `_flush_n_step` accumulated a `compound_sign` that correctly adjusts the bootstrap Q-value for perspective flips, but the same sign was also multiplied into intermediate rewards. Since all stored rewards are already from the agent's perspective, they should never be sign-adjusted. Fix: remove `compound_sign` from the reward accumulation; track the last entry's `negate` flag directly as the bootstrap sign. Affected all n_steps > 1 runs across all games.
+- **Bug (fixed) — asymmetric retroactive reward:** `clanker.py` gave the agent `-1` when the opponent won their last move, but no `+1` when the opponent lost on their last move. Fixed to `_on_opponent_terminal` handling both cases symmetrically.
+- **Remaining ceiling — determinism exploitation:** as epsilon decays, the agent locks into greedy flip-maximizing play — a well-known beginner trap that hands corners and edges to the opponent. Even random opponents punish this at high episode counts. Addressed in Phase 1.5 via generational training.
+- **Phase 1.5 outlook:** generational training directly targets the determinism exploitation ceiling. Starting from the 67% Phase 1 checkpoint, expect meaningful improvement. Phase 2 (AlphaZero) remains the long-term target for strategic depth.
 
 ---
 
@@ -278,9 +276,9 @@ The goal is to let others train their own agents and compete in a round-robin to
 3. ✅ Mancala — complete
 4. ✅ Connect Four — complete
 5. ✅ Gomoku — complete
-6. ⚠️ Othello — DQN insufficient, skipping to Phase 2
-7. 🔜 Checkers — next
-8. Backgammon — after Checkers
+6. ✅ Othello — 67.0% vs random at 100k (fixed run), Phase 1.5 revisit planned
+7. ✅ Checkers — complete (77.8% vs random at 100k)
+8. 🔜 Backgammon — next Phase 1 game
 9. Phase 1.5 — revisit Phase 1 games with generational training (excluding Othello)
 9. Build web frontend after Phase 1.5 is proven on at least one game
 10. Phase 2 (AlphaZero) after Phase 1.5
