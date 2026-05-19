@@ -134,22 +134,25 @@ class CheckersEnvironment(GeneralEnvironment):
         return 1
     
     def render(self):
-        symbols = {0: '.', 1: 'b', -1: 'r', 2: 'B', -2: 'R'}
+        if self.current_player == 1:
+            symbols = {0: '.', 1: 'b', -1: 'r', 2: 'B', -2: 'R'}
+        else:
+            symbols = {0: '.', 1: 'r', -1: 'b', 2: 'R', -2: 'B'}
         row_order = range(7, -1, -1) if self.current_player == 1 else range(8)
-        sep = "  +" + "-+" * 8
-        print("    " + " ".join(str(c) for c in range(8)))
+        sep = "  +" + "---+" * 8
+        print("    " + "   ".join(str(c) for c in range(8)))
         print(sep)
         for board_row in row_order:
             row_str = f"{board_row} |"
             for col in range(8):
                 if (board_row + col) % 2 == 0:
                     idx = board_row * 4 + (col // 2 if board_row % 2 == 0 else (col - 1) // 2)
-                    row_str += symbols[self.board[idx]] + "|"
+                    row_str += f" {symbols[self.board[idx]]} |"
                 else:
-                    row_str += " |"
+                    row_str += "   |"
             print(row_str)
             print(sep)
-        active = "P1 (b/B)" if self.current_player == 1 else "P2 (b/B)"
+        active = "P1 (b/B)" if self.current_player == 1 else "P2 (r/R)"
         if self.chained_capture_index is not None:
             active += f" — chained capture from square {self.chained_capture_index}"
         print(f"  Active: {active}\n")
