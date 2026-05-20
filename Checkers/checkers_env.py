@@ -51,7 +51,7 @@ class CheckersEnvironment(GeneralEnvironment):
         return self._to_agent_state()
 
     def _to_agent_state(self):
-        board_state = tuple((cell + 1) / 2 for cell in self.board)
+        board_state = tuple((cell + 2) / 4 for cell in self.board)
         chain = 0 if self.chained_capture_index is None else (self.chained_capture_index + 1) / 32
         return board_state + (chain,)
 

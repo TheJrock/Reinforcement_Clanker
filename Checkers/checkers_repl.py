@@ -66,7 +66,7 @@ def human_vs_human():
 def human_vs_ai():
     env = CheckersEnvironment()
     agent = DeepClanker(33, 1024)
-    agent.load("Checkers/stashed_models/checkers_2.5.pth")
+    agent.load("Checkers/stashed_models/checkers_3.5.pth")
     agent.epsilon = 0.0
     playing = True
 
