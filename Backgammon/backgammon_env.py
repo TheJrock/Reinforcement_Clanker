@@ -81,6 +81,8 @@ class BackgammonEnvironment(GeneralEnvironment):
             self._flip_perspective()
             self.dice = self._roll_dice()
             self._advance_if_no_moves()
+            if not self.get_legal_actions() and not self.is_terminal():
+                return self._to_agent_state(), 0, True
 
         return self._to_agent_state(), 0, False
 
@@ -102,7 +104,7 @@ class BackgammonEnvironment(GeneralEnvironment):
 
     def _advance_if_no_moves(self):
         attempts = 0
-        while not self.get_legal_actions() and not self.is_terminal() and attempts < 8:
+        while not self.get_legal_actions() and not self.is_terminal() and attempts < 100:
             self._flip_perspective()
             self.dice = self._roll_dice()
             attempts += 1

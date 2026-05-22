@@ -2,7 +2,7 @@ from clanker import DeepClanker
 from Backgammon.backgammon_env import BackgammonEnvironment
 
 EVAL_EPISODES = 1000
-TRAIN_EPISODES = [1, 10, 100, 1000, 10000, 100000]
+TRAIN_EPISODES = [100000]
 
 def main():
     env = BackgammonEnvironment()
