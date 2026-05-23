@@ -14,9 +14,9 @@ class Clanker(ABC):
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
 
-    def train(self, environment, episodes):
-        for episode in tqdm(range(episodes)):
-            self.play(environment, learning=True, opponent=None, verbose=False)
+    def train(self, environment, episodes, opponent=None, load_bar=True):
+        for episode in tqdm(range(episodes), disable=not load_bar):
+            self.play(environment, learning=True, opponent=opponent, verbose=False)
             self.update_epsilon()
 
     def evaluate(self, environment, episodes, opponent=None, verbose=False):

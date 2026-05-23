@@ -47,7 +47,7 @@ All Phase 1 games will be revisited in this phase after the full Phase 1 sweep i
 
 | # | Game | Status |
 |---|---|---|
-| 1 | Tic Tac Toe | Not started |
+| 1 | Tic Tac Toe | Skipped — TableClanker already converges to optimal play against random; no strategic depth to unlock via generational training. Next meaningful step is Phase 2 (AlphaZero pipeline validation). |
 | 2 | Ultimate Tic Tac Toe | Not started — also benefits from state encoding fix (see post-mortem) |
 | 3 | Mancala | Not started |
 | 4 | Connect Four | Not started |
@@ -162,6 +162,36 @@ Early runs showed degradation (49.2% at 1k → 28.1% at 10k, then 57.1% at 1k �
 - **Bug (fixed) — asymmetric retroactive reward:** `clanker.py` gave the agent `-1` when the opponent won their last move, but no `+1` when the opponent lost on their last move. Fixed to `_on_opponent_terminal` handling both cases symmetrically.
 - **Remaining ceiling — determinism exploitation:** as epsilon decays, the agent locks into greedy flip-maximizing play — a well-known beginner trap that hands corners and edges to the opponent. Even random opponents punish this at high episode counts. Addressed in Phase 1.5 via generational training.
 - **Phase 1.5 outlook:** generational training directly targets the determinism exploitation ceiling. Starting from the 67% Phase 1 checkpoint, expect meaningful improvement. Phase 2 (AlphaZero) remains the long-term target for strategic depth.
+
+---
+
+## Two-Channel State Encoding (Future Experiment)
+
+All current environments normalize board values to `[0, 1]` using a shift formula (e.g. `(v + 1) / 2`), so no negative inputs reach the network. This is sufficient for Phase 1 and 1.5.
+
+A cleaner alternative is the **two-channel approach** used by AlphaZero and already implemented in Backgammon: rather than a single value per cell encoding both ownership and piece type, use separate non-negative channels — one for the current player's pieces, one for the opponent's. Each channel carries unambiguous, independent gradients.
+
+**Potential benefits:** cleaner gradient signal per feature; network can independently learn "I have a piece here" vs "opponent has a piece here" without sharing a single neuron; more natural for games with multiple piece types (checkers kings, etc.).
+
+**When to try it:** after Phase 1.5 is complete, as a controlled experiment. Train identical agents on the two-channel versions and run direct head-to-head evaluation against the Phase 1.5 agents to isolate the encoding impact.
+
+**Implementation requirement:** to run a fair comparison, the old agents must stay intact. Options:
+- Create new `*_env_v2.py` variants with two-channel encoding alongside the originals
+- Or build a thin adapter that converts old state format to new, allowing old agents to play against new-encoding agents in a shared evaluation harness
+
+The comparison is only meaningful if the two sets of agents were trained for equivalent episodes against equivalent opponents — so plan the two-channel retrains to mirror whatever Phase 1.5 produced.
+
+---
+
+## Model Naming Convention
+
+Saved models follow the format `{game}_a{N}_{gen}.pth`, stored in each game's `stashed_models/` directory.
+
+- `{game}` — lowercase game name (e.g. `checkers`, `backgammon`)
+- `a{N}` — architecture version, starting at `a1`, incrementing whenever a change requires a full retrain from scratch
+- `{gen}` — generation within that architecture: `0.0` = random-trained 10k, `0.1` = random-trained 100k, `1`/`2`/`3`... = Phase 1.5 generational checkpoints
+
+Example: `checkers_a1_0.0.pth`, `checkers_a1_0.1.pth`, `checkers_a1_1.pth`, `checkers_a2_0.1.pth`
 
 ---
 
