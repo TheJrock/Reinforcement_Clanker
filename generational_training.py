@@ -22,22 +22,25 @@ EPISODE_BUDGET = 100000
 
 GENERATIONAL_AGENTS_DIR = "generational_agents"
 GAMES = {
-    "backgammon": {"env": BackgammonEnvironment, "sizes": (56, 650)},
-    "checkers": {"env": CheckersEnvironment, "sizes": (33, 1024)},
-    "connect_four": {"env": ConnectFourEnvironment, "sizes": (42, 7)},
-    "gomoku": {"env": GomokuEnvironment, "sizes": (225, 225)},
-    "mancala": {"env": MancalaEnvironment, "sizes": (14, 6)},
-    "othello": {"env": OthelloEnvironment, "sizes": (64, 64)},
-    "ultimate_tic_tac_toe": {"env": UltimateTicTacToeEnvironment, "sizes": (91, 81)},
+    "backgammon":        {"env": BackgammonEnvironment,       "sizes": (56, 650),  "n_steps": 5},
+    "checkers":          {"env": CheckersEnvironment,         "sizes": (33, 1024), "n_steps": 5},
+    "connect_four":      {"env": ConnectFourEnvironment,      "sizes": (42, 7),    "n_steps": 1},
+    "gomoku":            {"env": GomokuEnvironment,           "sizes": (225, 225), "n_steps": 1},
+    "mancala":           {"env": MancalaEnvironment,          "sizes": (14, 6),    "n_steps": 1},
+    "othello":           {"env": OthelloEnvironment,          "sizes": (64, 64),   "n_steps": 3},
+    "ultimate_tic_tac_toe": {"env": UltimateTicTacToeEnvironment, "sizes": (91, 81), "n_steps": 5, "buffer_size": 500000},
 }
 
-def train_agent(environment, env_sizes, ClankerClass, initial_agent_path, save_path, agent_path_pool=None, eval_freq=EVAL_FREQUENCY):
-    current_agent = ClankerClass(env_sizes[0], env_sizes[1])
+def train_agent(environment, env_sizes, ClankerClass, initial_agent_path, save_path, agent_path_pool=None, eval_freq=EVAL_FREQUENCY, n_steps=1, buffer_size=100000, starting_generation=1, random_weight=RANDOM_AGENT_PROBABILITY, previous_weight=PREVIOUS_AGENT_PROBABILITY, pool_weight=OTHER_AGENT_PROBABILITY):
+    def make_agent():
+        return ClankerClass(env_sizes[0], env_sizes[1], n_steps=n_steps, buffer_size=buffer_size)
+
+    current_agent = make_agent()
     current_agent.load(initial_agent_path)
     current_agent.epsilon = 0.1
     current_agent.epsilon_decay = (0.01 / current_agent.epsilon) ** (1 / (0.8 * EPISODE_BUDGET))
 
-    prev_agent = ClankerClass(env_sizes[0], env_sizes[1])
+    prev_agent = make_agent()
     prev_agent.load(initial_agent_path)
     prev_agent.epsilon = 0.0
     prev_agent_path = initial_agent_path
@@ -45,7 +48,7 @@ def train_agent(environment, env_sizes, ClankerClass, initial_agent_path, save_p
     agent_path_pool = agent_path_pool or []
     agent_pool = []
     for agent_path in agent_path_pool:
-        agent = ClankerClass(env_sizes[0], env_sizes[1])
+        agent = make_agent()
         agent.load(agent_path)
         agent.epsilon = 0.0
         agent_pool.append(agent)
@@ -53,12 +56,12 @@ def train_agent(environment, env_sizes, ClankerClass, initial_agent_path, save_p
     episode_count = 0
     total_episodes = 0
     best_win_rate = 0.0
-    generation = 1
+    generation = starting_generation
     while episode_count < EPISODE_BUDGET:
         for _ in tqdm(range(min(eval_freq, EPISODE_BUDGET - episode_count)), desc=f"Gen {generation} | Episode {episode_count}/{EPISODE_BUDGET}"):
             opponent_choice = random.choices(
                 population=['random', 'previous', 'pool'],
-                weights=[RANDOM_AGENT_PROBABILITY, PREVIOUS_AGENT_PROBABILITY, OTHER_AGENT_PROBABILITY],
+                weights=[random_weight, previous_weight, pool_weight],
                 k=1
             )[0]
 
@@ -82,7 +85,7 @@ def train_agent(environment, env_sizes, ClankerClass, initial_agent_path, save_p
             current_agent.save(f"{save_path}_{generation}.pth")
             current_agent.epsilon = 0.1
 
-            pool_agent = ClankerClass(env_sizes[0], env_sizes[1])
+            pool_agent = make_agent()
             pool_agent.load(prev_agent_path)
             pool_agent.epsilon = 0.0
             agent_pool.append(pool_agent)
@@ -111,16 +114,18 @@ def find_agents(game):
             agents.append((arch, gen, path))
     return sorted(agents, key=lambda x: (x[0], x[1]))
 
-def get_latest_and_pool(game):
+def get_latest_and_pool(game, arch):
     agents = find_agents(game)
     if not agents:
-        return None, None, []
-    max_arch = max(a[0] for a in agents)
-    arch_agents = [a for a in agents if a[0] == max_arch]
-    initial_path = arch_agents[-1][2]
+        return None, None, [], 1
+    arch_agents = [a for a in agents if a[0] == arch]
+    if not arch_agents:
+        return None, None, [], 1
+    latest_arch, latest_gen, initial_path = arch_agents[-1]
     pool_paths = [a[2] for a in arch_agents[:-1]]
-    save_path = os.path.join(GENERATIONAL_AGENTS_DIR, f"{game}_a{max_arch}")
-    return initial_path, save_path, pool_paths
+    save_path = os.path.join(GENERATIONAL_AGENTS_DIR, f"{game}_a{arch}")
+    starting_generation = max(1, int(latest_gen) + 1)
+    return initial_path, save_path, pool_paths, starting_generation
 
 def main():
     print("Available games:")
@@ -132,19 +137,57 @@ def main():
         if game not in GAMES:
             print(f"Invalid selection. Choose from: {', '.join(GAMES.keys())}")
 
-    initial_path, save_path, pool_paths = get_latest_and_pool(game)
-    if initial_path is None:
+    agents = find_agents(game)
+    if not agents:
         print(f"No agents found for '{game}' in {GENERATIONAL_AGENTS_DIR}/. Add at least one agent before training.")
         return
 
-    print(f"\nGame:          {game}")
-    print(f"Initial agent: {initial_path}")
-    print(f"Pool:          {pool_paths if pool_paths else 'empty (no prior checkpoints)'}")
-    print(f"Save path:     {save_path}_{{generation}}.pth\n")
+    available_archs = sorted(set(a[0] for a in agents))
+    print(f"Available architectures: {available_archs}")
+    arch = None
+    while arch not in available_archs:
+        try:
+            arch = int(input(f"Select architecture number: ").strip())
+            if arch not in available_archs:
+                print(f"Invalid selection. Choose from: {available_archs}")
+        except ValueError:
+            print("Enter a number.")
+
+    initial_path, save_path, pool_paths, starting_generation = get_latest_and_pool(game, arch)
+    if initial_path is None:
+        print(f"No agents found for '{game}' architecture {arch}.")
+        return
+
+    print(f"\nDefault pool weights — random: {RANDOM_AGENT_PROBABILITY}, previous: {PREVIOUS_AGENT_PROBABILITY}, pool: {OTHER_AGENT_PROBABILITY}")
+    use_defaults = input("Use default weights? (y/n): ").strip().lower()
+    if use_defaults == "y":
+        random_weight = RANDOM_AGENT_PROBABILITY
+        previous_weight = PREVIOUS_AGENT_PROBABILITY
+        pool_weight = OTHER_AGENT_PROBABILITY
+    else:
+        while True:
+            try:
+                random_weight = float(input("Random weight: ").strip())
+                previous_weight = float(input("Previous agent weight: ").strip())
+                pool_weight = float(input("Pool weight: ").strip())
+                break
+            except ValueError:
+                print("Enter numbers.")
+
+    print(f"\nGame:             {game}")
+    print(f"Architecture:     a{arch}")
+    print(f"Initial agent:    {initial_path}")
+    print(f"Starting gen:     {starting_generation}")
+    print(f"Pool:             {pool_paths if pool_paths else 'empty (no prior checkpoints)'}")
+    print(f"Weights:          random={random_weight}, previous={previous_weight}, pool={pool_weight}")
+    print(f"Save path:        {save_path}_{{generation}}.pth\n")
 
     config = GAMES[game]
     environment = config["env"]()
-    train_agent(environment, config["sizes"], DeepClanker, initial_path, save_path, pool_paths)
+    train_agent(environment, config["sizes"], DeepClanker, initial_path, save_path, pool_paths,
+                n_steps=config.get("n_steps", 1), buffer_size=config.get("buffer_size", 100000),
+                starting_generation=starting_generation, random_weight=random_weight,
+                previous_weight=previous_weight, pool_weight=pool_weight)
 
 if __name__ == "__main__":
     main()

@@ -49,7 +49,7 @@ All Phase 1 games will be revisited in this phase after the full Phase 1 sweep i
 |---|---|---|
 | 1 | Tic Tac Toe | Skipped — TableClanker already converges to optimal play against random; no strategic depth to unlock via generational training. Next meaningful step is Phase 2 (AlphaZero pipeline validation). |
 | 2 | Ultimate Tic Tac Toe | Not started — also benefits from state encoding fix (see post-mortem) |
-| 3 | Mancala | Not started |
+| 3 | Mancala | ✅ Complete — 1 generation saved. Gen 1 beat the Phase 1 100k agent at 100% win rate after only 4000 training episodes, with draws dropping to 0% (gen 1 learned a decisive aggressive strategy). Gen 2 stalled — best win rate 51.9% vs gen 1 over 100k episodes. Erratic oscillation between 0% and ~50% throughout gen 2 is a classic rock-paper-scissors dynamic: DQN finds narrow counter-strategies that are either completely dominant or completely dominated, with no stable middle ground. Gen 1 is the DQN ceiling for Mancala under generational training. |
 | 4 | Connect Four | Not started |
 | 5 | Gomoku | Not started |
 | 6 | Othello | Not started — 67% vs random in Phase 1 confirms DQN is learning real strategy. Generational training targets determinism exploitation, the remaining ceiling. Expect meaningful improvement over the Phase 1 baseline. |
