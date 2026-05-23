@@ -22,6 +22,7 @@ class BackgammonEnvironment(GeneralEnvironment):
         self.off = [0, 0]    # [current_player, opponent]
         self.current_player = 1
         self.dice = []
+        self.last_skips = []  # list of (player, dice) for turns skipped due to no legal moves
 
     def _initial_board(self):
         board = [0] * 24
@@ -42,6 +43,7 @@ class BackgammonEnvironment(GeneralEnvironment):
         self.bar = [0, 0]
         self.off = [0, 0]
         self.current_player = 1
+        self.last_skips = []
         self.dice = self._roll_dice()
         self._advance_if_no_moves()
         return self._to_agent_state()
@@ -78,6 +80,7 @@ class BackgammonEnvironment(GeneralEnvironment):
             self.board[to_idx] += 1
 
         if not self.dice or not self.get_legal_actions():
+            self.last_skips = []
             self._flip_perspective()
             self.dice = self._roll_dice()
             self._advance_if_no_moves()
@@ -105,6 +108,7 @@ class BackgammonEnvironment(GeneralEnvironment):
     def _advance_if_no_moves(self):
         attempts = 0
         while not self.get_legal_actions() and not self.is_terminal() and attempts < 100:
+            self.last_skips.append((self.current_player, list(self.dice)))
             self._flip_perspective()
             self.dice = self._roll_dice()
             attempts += 1

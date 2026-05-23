@@ -3,10 +3,14 @@ from clanker import DeepClanker
 from Backgammon.backgammon_env import BackgammonEnvironment
 
 
-def decode_move(action):
+def decode_move(action, as_opponent=False):
     from_idx, to_idx = divmod(action, 26)
-    src = "Bar" if from_idx == 24 else f"Pt {from_idx + 1}"
-    dst = "Off" if to_idx == 25 else f"Pt {to_idx + 1}"
+    if as_opponent:
+        src = "Bar" if from_idx == 24 else f"Pt {24 - from_idx}"
+        dst = "Off" if to_idx == 25 else f"Pt {24 - to_idx}"
+    else:
+        src = "Bar" if from_idx == 24 else f"Pt {from_idx + 1}"
+        dst = "Off" if to_idx == 25 else f"Pt {to_idx + 1}"
     return f"{src} → {dst}"
 
 
@@ -62,7 +66,7 @@ def human_vs_human():
 def human_vs_ai():
     env = BackgammonEnvironment()
     agent = DeepClanker(56, 650)
-    agent.load("Backgammon/stashed_models/backgammon_100k.pth")
+    agent.load("Backgammon/stashed_models/backgammon_1.5.pth")
     agent.epsilon = 0.0
     playing = True
 
@@ -81,9 +85,12 @@ def human_vs_ai():
                 action = get_human_move(legal_actions)
             else:
                 action = agent.act(state, legal_actions)
-                print(f"AI plays: {decode_move(action)}")
+                print(f"AI plays: {decode_move(action, as_opponent=True)}")
 
             state, _, done = env.step(action)
+            for skipped_player, dice in env.last_skips:
+                who = "You" if skipped_player == human_env_player else "AI"
+                print(f"{who} rolled {dice} but had no legal moves — turn skipped.")
 
         env.render()
         if env.current_player == human_env_player:
