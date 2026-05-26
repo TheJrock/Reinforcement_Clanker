@@ -19,14 +19,14 @@ class Clanker(ABC):
             self.play(environment, learning=True, opponent=opponent, verbose=False)
             self.update_epsilon()
 
-    def evaluate(self, environment, episodes, opponent=None, verbose=False):
+    def evaluate(self, environment, episodes, opponent=None, verbose=False, load_bar=True):
         current_epsilon = self.epsilon
         if opponent:
             opponent_epsilon = opponent.epsilon
             opponent.epsilon = 0.0
         self.epsilon = 0.0
         counts = {"wins": 0, "losses": 0, "draws": 0}
-        for episode in tqdm(range(episodes)):
+        for episode in tqdm(range(episodes), disable=not load_bar):
             reward, agent_player = self.play(environment, learning=False, opponent=opponent, verbose=verbose)
 
             if reward == 0:

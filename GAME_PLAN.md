@@ -50,15 +50,21 @@ All Phase 1 games will be revisited in this phase after the full Phase 1 sweep i
 | 1 | Tic Tac Toe | Skipped — TableClanker already converges to optimal play against random; no strategic depth to unlock via generational training. Next meaningful step is Phase 2 (AlphaZero pipeline validation). |
 | 2 | Ultimate Tic Tac Toe | Not started — also benefits from state encoding fix (see post-mortem) |
 | 3 | Mancala | ✅ Complete — 1 generation saved. Gen 1 beat the Phase 1 100k agent at 100% win rate after only 4000 training episodes, with draws dropping to 0% (gen 1 learned a decisive aggressive strategy). Gen 2 stalled across two attempts with different pool weights (50% previous / 40% pool, then 90% previous / 10% pool) — best win rate 51.9% in either run. Higher previous weight caused faster collapse (0% after 2000 episodes vs 4000), confirming the issue is not a weighting problem. Erratic oscillation between 0% and ~50% is a rock-paper-scissors dynamic: DQN finds narrow counter-strategies that are either completely dominant or completely dominated with no stable middle ground. Win detection verified correct via direct self-play eval test. Gen 1 is the DQN ceiling for Mancala under generational training. Round-robin (0.0, 0.1, gen 1): `a1_0.0` dominates at 100% overall, gen 1 at 50%, `a1_0.1` at 0% — a strict but counterintuitive hierarchy. The 10k random agent beat the generational agent completely, confirming that all three policies are brittle and narrow. Also confirms that 100k random training can produce a *worse* seed than 10k by over-specializing against random play. |
-| 4 | Connect Four | In progress — 20+ generations saved. Three round-robins run so far. **Full RR (gens 0.0–13):** gen 13 leads at 90% overall; clear transitive improvement from gen 7 onward (gens 7–10 beat all earlier gens at 100%), but intransitivity persists in the middle band (gen 12 loses to gen 8 at 0% despite being 4 gens newer). **Last-10 RR (gens 11–20):** gens 19–20 lead at ~78% within the window, consistently beating gens 11–18; intransitivity still present (gen 13 beats gen 20 at 100%, gen 20 beats gen 11 at 100%, gen 11 beats gen 13 at 56% — a three-way cycle). Pattern: the *floor* keeps rising (each new band of gens dominates the previous band), but no stable strategy has emerged — each wave beats the last but remains cyclically exploitable. Full RR (all 25 agents) pending; if gen 20+ overall win rate is still climbing from gen 13's 90% ceiling, continue training. If flat, generational training has hit its DQN ceiling. Notable finding from Mancala round-robin: `a1_0.0` (10k random) beat both `a1_0.1` (100k random) and `a1_1` (gen 1) at 100%, suggesting over-training on random opponents can produce a more rigid, exploitable policy. |
-| 5 | Gomoku | Not started |
+| 4 | Connect Four | ✅ Complete — 40 generations trained. **Recommended agent: `connect_four_a1_36` (81.7% overall win rate in 42-agent full round-robin).** Four round-robins run across training. Clear pattern: the overall win rate floor rises with each band of generations (gens 1–6 dominated by 7–12, dominated by 13–26, dominated by 27–40), but no stable strategy ever emerges — every peak agent has at least one hard counter from earlier gens (gen 36 loses to gen 8 at 100%, gen 37 loses to gen 7 at 100%). Gen 40 regressed to 14th overall (64.2%), confirming the DQN ceiling was hit around gen 35–36 and training beyond that oscillates without improvement. Three-tier structure in final RR: top tier (gens ~27–39, 60%+), middle tier (gens ~13–26, 40–60%), bottom tier (gens 0.0–12, below 40%). Intransitivity is extreme throughout — gen 35 beats gen 36 at 100% yet ranks below it overall, illustrating that no single metric captures the full picture. Notable finding from Mancala round-robin: `a1_0.0` (10k random) beat both `a1_0.1` (100k random) and `a1_1` (gen 1) at 100%, suggesting over-training on random opponents can produce a more rigid, exploitable policy. |
+| 5 | Gomoku | In progress — 36 generations trained (gen 36 in progress). Four round-robins and extensive game analysis completed. **First RR (gens 0.1–15):** near-perfect staircase through gen 6, intransitivity emerging in gens 7–14, gen 15 dominant at 97%. **Second RR (gens 0.1–21):** gen 20 leads at 88%, full RPS structure among top gens, gen 10 anomaly persists (still beats gen 21 100%). **Third RR (gens 20–32):** gen 30 leads at 79.8% overall. Perfect three-way RPS cycle at the top: 30 beats 32 (100%), 32 beats 31 (100%), 31 beats 30 (100%). Gen 24 collapses to 17% (worst ever) — overfitted to a specific pool composition, useless against everything else. Non-monotonic ordering confirmed: training past the ceiling produces oscillation without improvement. **Strategic era shift at gen 33:** gen 33 developed a coherent col-row=4 diagonal attack; gen 34 inherited it and added multi-threat construction — building simultaneous threats in column 9 (vertical), row 4, row 5, and row 1 that force opponents to block in multiple places at once. Gen 34 beat all predecessors 100%. **Fourth RR (gens 31–35):** perfect linear dominance chain — 35 > 34 > 33 > 32 > 31, no cycles, each gen beats all predecessors 100%. Strategic inheritance confirmed: gen 35 started from gen 34's weights, struggled at 0% win rate for longer than any prior generation (4k+ episodes), then broke through with both the inherited diagonal attack AND genuine defensive capability. **Full RR (gens 20–35, 136 matchups × 50 games):** gen 35 sweeps 100% against all 15 opponents including gen 20. Gen 34 loses to gen 20 at 0% — gen 34's multi-threat attack is tuned against trained opponents and fails against simple positional play it can't block. Gen 35 beats gen 20 (100%), confirming it acquired defensive capability gen 34 lacked. Clear two-era structure: gens 20–32 form a noisy RPS plateau; gens 33–35 form a clean linear dominance era that supersedes all prior cycles. **Gen 36 regression:** started at 52.5% win rate (inherited gen 35's weights), dropped to 0% after 4k training episodes. Root cause: pool dilution — with 36+ agents in the pool sampled uniformly, the vast majority of training games are against easy old opponents, dominating the replay buffer with low-quality gradient updates. Games also nearly doubled in length (1.5s → 2.9s per game), indicating aimless wandering rather than purposeful play. **Training fix implemented:** pool sampling split into four buckets — previous=40%, recent (last 5 gens)=35%, old=22%, random=3%. Sampling table rebuilt at startup and on each generation save only (not per episode). Will restart training from gen 36 checkpoint once it saves, applying new weights for gen 37 onward. **Tools created:** `watch_game.py` (interactive step-through game viewer), `probe_blocking.py` (isolated tactical scenario tester — confirmed gen 32 plays (6,8) on all threat scenarios regardless of board state). **Assessment:** DQN ceiling approaching but not yet fully hit — gen 35's genuine defensive capability is a meaningful leap. Pool dilution is now the primary training bottleneck; the sampling fix is the most important architectural change made to the training loop. |
 | 6 | Othello | Not started — 67% vs random in Phase 1 confirms DQN is learning real strategy. Generational training targets determinism exploitation, the remaining ceiling. Expect meaningful improvement over the Phase 1 baseline. |
 | 7 | Checkers | Not started — 77.8% vs random in Phase 1. Same plateau pattern as other games; generational training is the right next step. |
 | 8 | Backgammon | Not started — 72.0% vs random in Phase 1. Stochasticity caps the ceiling vs random; generational training targets strategic depth and exploitation resistance rather than raw win rate improvement. |
 
 ---
 
-## Phase 2 — AlphaZero (MCTS + Neural Network)
+## Phase 2 — MCTS + Neural Network (AlphaZero-style)
+
+**The general algorithm is MCTS (Monte Carlo Tree Search)**, developed around 2006 and used in game-playing programs well before deep learning. AlphaZero is a specific instantiation: MCTS guided by a neural network that outputs both a policy (which moves look promising) and a value (who is winning from this position). Classic MCTS uses random rollouts to estimate value; AlphaZero replaces those rollouts with the neural network's value estimate, which is far more efficient. The selection formula (PUCT) also uses the network's policy as a prior to guide exploration. **Expert Iteration (ExIt)** is a parallel framing of the same idea: use MCTS as an "expert" to generate better moves than the current policy, train the policy to imitate the expert, repeat. Both names describe the same core loop.
+
+**AlphaZero's neural network is an actor-critic architecture** — a policy head and a value head on a shared backbone. This is the same structural foundation as PPO. Understanding PPO first makes AlphaZero's training loop significantly more legible; however, MCTS is proceeding before PPO in this project, and PPO concepts will be revisited when Phase 3 (card games) and Phase 4 (continuous control) require them.
+
+**Note on rules being given:** AlphaZero still requires the environment to supply legal moves and detect game-over conditions — `get_legal_actions()` and the terminal signal in `step()`. This is a meaningful form of rule knowledge being handed to the agent. The agent learns *which legal move is best*, not *what the moves mean* or *what is legal*. MuZero (Phase 5) removes this requirement entirely. See Phase 5 for discussion of the trajectory toward fully learned environments.
 
 **Pipeline validation games** (Mancala, Connect Four): both are fully solved, DQN already near-optimal, and AlphaZero won't produce transformative results — but they're useful for proving the MCTS pipeline works before tackling harder games. All other games below benefit meaningfully from MCTS.
 
@@ -67,13 +73,25 @@ All Phase 1 games will be revisited in this phase after the full Phase 1 sweep i
 | 8 | Mancala | AlphaZero-style | **Pipeline validation.** Familiar game, small state space, good for validating the MCTS + neural network pipeline before scaling up. Kalah is solved (P1 wins), so perfect play is verifiable. |
 | 9 | Connect Four | AlphaZero-style | **Pipeline validation.** Solved (P1 wins). DQN at 97.1% — AlphaZero closes the remaining gap to provably perfect play and provides a direct before/after comparison. |
 | 10 | Ultimate Tic Tac Toe | AlphaZero-style | Not fully solved. Significant strategic depth — DQN got 85.8% vs random but generational training has limits. MCTS expected to be genuinely stronger. |
-| 11 | Gomoku (15×15) | AlphaZero-style | Not fully solved (P1 wins in theory but proof is deep). DQN hit 99.9% vs random but random is trivially easy on a 15×15 board — true strategic strength is unknown. MCTS with neural network guidance is the natural fit for the large branching factor. |
-| 12 | Othello | AlphaZero-style | Not fully solved on 8×8. DQN failed — complex strategic depth rewards deep lookahead that MCTS handles naturally. MCTS is expected to be transformative here. |
+| 11 | Gomoku (15×15) | AlphaZero-style | Not fully solved (P1 wins in theory but proof is deep). DQN self-play demonstrably failed to learn blocking — 32 generations produced agents that collapse to a fixed position preference (always row 6, col 8) regardless of board state, confirmed by direct Q-value probing. MCTS handles tactics through explicit lookahead rather than requiring the value function to encode every threat pattern. |
+| 12 | Othello | AlphaZero-style | Not fully solved on 8×8. DQN learned basic strategy but hit a ceiling — complex positional play rewards deep lookahead that MCTS handles naturally. MCTS is expected to be transformative here. |
 | 13 | Checkers | AlphaZero-style | Solved by Chinook in 2007 — perfect play always draws. First major board game solved by computer; achieving near-perfect play is a meaningful milestone. DQN will fall well short of optimal. |
-| 14 | Backgammon | AlphaZero-style | Stochastic — requires chance nodes in MCTS (one node per possible dice outcome, weighted by probability). TD-Gammon proved neural network value learning works here; AlphaZero-style should be stronger still. Revisit depends on Phase 1 DQN results. |
-| 15 | Chess | AlphaZero-style | MCTS + neural network. Standard DQN cannot handle this state space. Long-term goal. |
+| 14 | Backgammon | AlphaZero-style | Stochastic — requires chance nodes in MCTS (one node per possible dice outcome, weighted by probability). TD-Gammon proved neural network value learning works here; AlphaZero-style should be stronger still. |
+| 15 | Chess | AlphaZero-style | MCTS + neural network. Standard DQN cannot handle this state space. Long-term goal. Use `python-chess` as the environment backend — do not build a Chess environment from scratch. Wrap it in a Gymnasium-compatible interface. |
 
-AlphaZero approach: neural network guides Monte Carlo Tree Search (look-ahead), trained via self-play. Computationally expensive but necessary for Chess-level complexity. Mancala serves as the entry point to validate the pipeline before tackling larger state spaces.
+MCTS + neural network approach: the neural network guides tree search (look-ahead), trained via self-play. MCTS handles tactics explicitly through search; the neural network handles strategy through learned value and policy estimates. Mancala serves as the entry point to validate the pipeline before tackling larger state spaces.
+
+### Environment Strategy (Phase 2 onward)
+
+For Phase 1 and 1.5, building custom environments was the right investment — full control over state encoding, reward design, and action space, with clear educational value. Going forward, the investment belongs on the algorithm side, not the environment side.
+
+**Adopt the Gymnasium interface for all new environments.** Gymnasium (`gymnasium`) is the universal standard — implementing `reset()`, `step()`, `observation_space`, and `action_space` makes any environment compatible with the broader RL ecosystem (Stable Baselines3, CleanRL, RLlib). This enables benchmarking custom agents against reference implementations and makes skills transferable to real RL work.
+
+**For Chess:** use `python-chess` as the backend. It handles all rules, move generation, and edge cases (en passant, castling, 50-move rule, repetition) correctly. Wrap it in a thin Gymnasium interface. Building from scratch would cost weeks and produce an inferior result.
+
+**For multi-agent games:** PettingZoo is the Gymnasium equivalent for multi-agent environments. It already includes Backgammon, Chess, Connect Four, Go, and others — worth knowing about before deciding to build custom multi-agent environments.
+
+**Existing custom environments:** no need to rewrite them, but adding a thin Gymnasium-compatible wrapper would allow benchmarking DQN/AlphaZero agents against SB3 baselines on the same environments — a useful one-time investment when Phase 2 begins.
 
 ---
 
@@ -135,6 +153,66 @@ Inspired by a VEX Robotics-style competition: two robots collect rings and place
 - **Agent:** PPO with continuous state (robot pose, ring positions, time remaining) and continuous actions (motor speeds / movement commands)
 
 This is the most ambitious goal of the project and will require significant simulation work before training can begin.
+
+---
+
+## Phase 5 — Model-Based RL (World Models)
+
+Phases 1–4 are all **model-free**: the agent learns purely from environment interactions, with no internal representation of how the environment works. Model-based RL adds a **learned dynamics model** — the agent builds an internal simulator and can plan by imagining rollouts without querying the real environment. This is the next major conceptual jump after PPO.
+
+### Why it matters
+
+Model-free agents are sample-inefficient: they need millions of real environment interactions to learn. A world model amortizes this cost — once the dynamics are learned, the agent can generate unlimited synthetic experience internally. For expensive environments (real robotics, slow simulations, the Robot Arena), this matters enormously.
+
+### MuZero — MCTS with a Fully Learned Environment
+
+AlphaZero still requires the environment to provide legal moves and terminal conditions — `get_legal_actions()` and the done signal are implicit rule knowledge being handed to the agent. **MuZero** (DeepMind, 2020) removes this entirely: it learns three functions jointly from raw observations:
+- **Representation:** encode the real observation into a latent state
+- **Dynamics:** predict the next latent state and immediate reward given a latent state + action
+- **Prediction:** output policy and value from a latent state (same as AlphaZero's network)
+
+MCTS then runs entirely inside the learned latent space — no real environment needed at decision time, and no rules provided. The agent discovers what is legal, what moves do, and when the game ends purely from experience. MuZero matched AlphaZero on Chess, Go, and Shogi while also mastering Atari without being given the rules.
+
+**This is the long-term goal of this project.** The motivation is not efficiency — it is building agents that require zero domain knowledge, which is the only viable approach for problems where we don't already know good solutions. Heuristic opponents, reward shaping, and rule injection all cap the agent at the level of the human knowledge baked in. MuZero-style learning removes that ceiling. The trajectory of this project is deliberately moving in this direction: Phase 1 (DQN, rules given, rewards given) → Phase 2 (MCTS, rules given, rewards given) → Phase 5 (MCTS, rules learned, rewards learned).
+
+**Entry point:** apply MuZero to Connect Four or Mancala first (rules already known, AlphaZero baseline exists for comparison). Then scale to games where the rules are more expensive to query (Backgammon, eventually the Robot Arena).
+
+### Dreamer — World Models for Continuous Control
+
+For continuous control (Phase 4 territory), **Dreamer** (Google, 2020–2023) is the model-based analogue of PPO. It learns a recurrent world model in a compact latent space, then trains an actor-critic entirely inside the model's imagination. Dreamer v3 achieves strong results across diverse domains — Atari, continuous control, and 3D environments — with a single set of hyperparameters.
+
+**Entry point:** replace the PPO agent in BipedalWalker or the Robot Arena with a Dreamer-style agent. Particularly compelling for the Robot Arena where real simulation is expensive.
+
+### Offline RL / Imitation Learning (Related)
+
+Not model-based per se, but adjacent: **offline RL** learns from a fixed dataset of experience (human gameplay, recorded rollouts) without interacting with the environment at all. **Imitation learning** (behavioral cloning, IRL) bootstraps from expert demonstrations. Both are relevant if you ever want to seed agents from recorded human games rather than pure self-play — e.g. training a Chess agent from a database of grandmaster games before self-play begins.
+
+### Transformers in RL
+
+**Decision Transformer** reframes RL as sequence modeling: given a history of (state, action, reward) triples and a target return, predict the next action. No Bellman updates, no replay buffer — just a causal transformer trained with supervised learning on trajectories. **Gato** (DeepMind, 2022) extended this to a single transformer trained across 600+ tasks simultaneously. These haven't displaced PPO for most practical work, but represent a fundamentally different paradigm worth understanding.
+
+### Suggested Phase 5 Build Order
+
+1. **MuZero on Mancala/Connect Four** — validate the learned dynamics model against the known AlphaZero baseline
+2. **MuZero on Gomoku or Chess** — first application where the model-free approaches fall short
+3. **Dreamer on Robot Arena** — replace PPO with model-based planning for the most sample-hungry environment in the project
+4. **Decision Transformer on a Phase 3 card game** — explore the sequence-modeling paradigm on a partial-observability task
+
+---
+
+## DQN Self-Play — Fundamental Limitations
+
+DQN was designed for single-agent Atari: dense rewards, no opponent, discrete actions. Two-player self-play breaks its core assumptions in ways that are not fixable by tuning hyperparameters.
+
+**Non-stationarity:** Bellman updates bootstrap from Q-values that are themselves changing because the opponent is also training. The target network stabilizes this partially but cannot resolve it — both the environment and the opponent are moving targets simultaneously.
+
+**Positional collapse:** In practice, DQN self-play on complex board games collapses Q-values to smooth position preferences rather than state-dependent tactics. The network learns "this cell is generally good" because that is far easier to extract from a noisy, non-stationary signal than "this cell is correct given this specific board configuration." Confirmed empirically in Gomoku: after 32 generations of generational training, all agents play row 6 col 8 on every board state regardless of threats, verified by direct Q-value probing with isolated threat positions.
+
+**Why blocking never emerges:** The `_on_opponent_terminal` mechanism does propagate the "didn't block, then lost" signal back to the previous move — the credit assignment mechanism exists. The failure is distributional: because all pool agents share the same positional collapse, neither player consistently builds credible 4-in-a-row threats, so the signal almost never appears in the replay buffer. Increasing n_steps or starting a new architecture line from a different seed does not fix this — it is a property of the training distribution, not the credit assignment distance.
+
+**Pool dilution:** generational training with a flat uniform pool compounds the distributional problem. Once the pool grows to 30+ agents, the vast majority of training games are against old, easily beaten opponents. The replay buffer fills with low-quality gradient updates that shift the policy toward exploiting weak agents, actively degrading capability against the current target. Empirically confirmed: gen 36 inherited gen 35's weights (starting at 52.5% win rate), then regressed to 0% after 4k training episodes against the full uniform pool. Fix: weighted sampling that concentrates training on recent and the immediate predecessor — previous=40%, recent N gens=35%, old=22%, random=3%.
+
+**The right fix is a different algorithm.** Policy gradient methods (PPO) are more stable under self-play non-stationarity because they learn a probability distribution over actions rather than a deterministic argmax. MCTS handles tactics explicitly through lookahead — the network only needs to estimate who is winning, not encode every tactical pattern. AlphaZero combines both. This is the motivation for Phase 2.
 
 ---
 
@@ -309,7 +387,7 @@ The goal is to let others train their own agents and compete in a round-robin to
 6. ✅ Othello — 67.0% vs random at 100k (fixed run), Phase 1.5 revisit planned
 7. ✅ Checkers — complete (87.4% vs random at 100k)
 8. ✅ Backgammon — complete (72.0% vs random at 100k)
-9. Phase 1.5 — revisit Phase 1 games with generational training (excluding Othello)
-9. Build web frontend after Phase 1.5 is proven on at least one game
-10. Phase 2 (AlphaZero) after Phase 1.5
-11. Phase 3 (card games) and Phase 4 (continuous control) are long-term goals
+9. 🔄 Phase 1.5 Gomoku — 36 generations trained, gen 36 in progress. Wait for gen 36 to save, then restart with new weighted pool sampling (previous=40%, recent=35%, old=22%, random=3%). Run full RR (gens 20–37+) after several more generations to assess whether the sampling fix sustains the gen 33–35 linear improvement trend.
+10. Phase 1.5 remaining games (Othello, Checkers, Backgammon, UTTT) — after Gomoku reaches its DQN ceiling
+11. Phase 2 (MCTS/AlphaZero) — start with Mancala as pipeline validation, then Gomoku where DQN demonstrably failed at tactics
+12. Phase 3 (card games) and Phase 4 (continuous control) are long-term goals

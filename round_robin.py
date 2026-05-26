@@ -1,9 +1,8 @@
 import os
 import argparse
+from tqdm import tqdm
 from clanker import DeepClanker
 from generational_training import GAMES, find_agents
-
-EVAL_EPISODES = 200
 
 def load_agent(path, sizes, n_steps, buffer_size):
     agent = DeepClanker(sizes[0], sizes[1], n_steps=n_steps, buffer_size=buffer_size)
@@ -18,7 +17,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--last", type=int, default=None, metavar="N",
                         help="Only evaluate the N most recent agents")
+    parser.add_argument("--episodes", type=int, default=200, metavar="N",
+                        help="Games per matchup (default: 200)")
     args = parser.parse_args()
+    eval_episodes = args.episodes
 
     print("Available games:")
     for name in GAMES:
@@ -45,8 +47,12 @@ def main():
     for _, _, path in agents_meta:
         print(f"  {short_name(path)}")
 
+    print("Loading agents...")
     agents = [(short_name(path), load_agent(path, config["sizes"], n_steps, buffer_size))
               for _, _, path in agents_meta]
+    # Second copies for self-matchups, loaded upfront to avoid mid-run prints
+    agents_self = [load_agent(path, config["sizes"], n_steps, buffer_size)
+                   for _, _, path in agents_meta]
     names = [a[0] for a in agents]
     n = len(agents)
 
@@ -56,17 +62,27 @@ def main():
     # results[i][j] = (wins, losses, draws) of agent i vs agent j
     results = [[None] * n for _ in range(n)]
 
-    total_pairs = n * (n - 1) // 2
-    print(f"\nRunning {total_pairs} matchup(s), {EVAL_EPISODES} games each...\n")
+    total_pairs = n * (n - 1) // 2 + n
+    print(f"\nRunning {total_pairs} matchup(s), {eval_episodes} games each...")
 
-    for i in range(n):
-        for j in range(i + 1, n):
-            name_i, agent_i = agents[i]
-            name_j, agent_j = agents[j]
-            print(f"  {name_i} vs {name_j}")
-            counts = agent_i.evaluate(environment, opponent=agent_j, episodes=EVAL_EPISODES, verbose=False)
-            results[i][j] = counts
-            results[j][i] = {"wins": counts["losses"], "losses": counts["wins"], "draws": counts["draws"]}
+    with tqdm(total=total_pairs * eval_episodes) as pbar:
+        for i in range(n):
+            for j in range(i, n):
+                name_i, agent_i = agents[i]
+                name_j, agent_j = agents[j]
+                if i == j:
+                    agent_j = agents_self[j]
+                pbar.set_description(f"{name_i} vs {name_j}")
+                combined = {"wins": 0, "losses": 0, "draws": 0}
+                for _ in range(eval_episodes):
+                    result = agent_i.evaluate(environment, opponent=agent_j, episodes=1, verbose=False, load_bar=False)
+                    combined["wins"] += result["wins"]
+                    combined["losses"] += result["losses"]
+                    combined["draws"] += result["draws"]
+                    pbar.update(1)
+                results[i][j] = combined
+                if i != j:
+                    results[j][i] = {"wins": combined["losses"], "losses": combined["wins"], "draws": combined["draws"]}
 
     # Print win rate matrix
     col_w = max(len(n) for n in names) + 2
@@ -80,12 +96,9 @@ def main():
     for i, (name_i, _) in enumerate(agents):
         row = f"{name_i:>{header_w}} |"
         for j in range(n):
-            if i == j:
-                row += f" {'---':>{col_w}} |"
-            else:
-                r = results[i][j]
-                win_rate = r["wins"] / EVAL_EPISODES
-                row += f" {win_rate:>{col_w}.0%} |"
+            r = results[i][j]
+            win_rate = r["wins"] / eval_episodes
+            row += f" {win_rate:>{col_w}.0%} |"
         print(row)
 
     # Print total win rates (sum of wins across all opponents)
@@ -93,7 +106,7 @@ def main():
     totals = []
     for i, (name_i, _) in enumerate(agents):
         total_wins = sum(results[i][j]["wins"] for j in range(n) if i != j)
-        total_games = EVAL_EPISODES * (n - 1)
+        total_games = eval_episodes * (n - 1)
         totals.append((name_i, total_wins / total_games))
 
     totals.sort(key=lambda x: -x[1])

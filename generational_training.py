@@ -15,9 +15,11 @@ from UltimateTicTacToe.ultimate_tic_tac_toe_env import UltimateTicTacToeEnvironm
 WIN_RATE_THRESHOLD = 0.55
 EVAL_EPISODES = 1000
 EVAL_FREQUENCY = 2000
-RANDOM_AGENT_PROBABILITY = 0.1
-PREVIOUS_AGENT_PROBABILITY = 0.5
-OTHER_AGENT_PROBABILITY = 0.4
+RANDOM_AGENT_PROBABILITY = 0.03
+PREVIOUS_AGENT_PROBABILITY = 0.40
+RECENT_AGENT_PROBABILITY = 0.35
+OLD_AGENT_PROBABILITY = 0.22
+POOL_WINDOW = 5
 EPISODE_BUDGET = 100000
 
 GENERATIONAL_AGENTS_DIR = "generational_agents"
@@ -31,7 +33,7 @@ GAMES = {
     "ultimate_tic_tac_toe": {"env": UltimateTicTacToeEnvironment, "sizes": (91, 81), "n_steps": 5, "buffer_size": 500000},
 }
 
-def train_agent(environment, env_sizes, ClankerClass, initial_agent_path, save_path, agent_path_pool=None, eval_freq=EVAL_FREQUENCY, n_steps=1, buffer_size=100000, starting_generation=1, random_weight=RANDOM_AGENT_PROBABILITY, previous_weight=PREVIOUS_AGENT_PROBABILITY, pool_weight=OTHER_AGENT_PROBABILITY):
+def train_agent(environment, env_sizes, ClankerClass, initial_agent_path, save_path, agent_path_pool=None, eval_freq=EVAL_FREQUENCY, n_steps=1, buffer_size=100000, starting_generation=1, random_weight=RANDOM_AGENT_PROBABILITY, previous_weight=PREVIOUS_AGENT_PROBABILITY, recent_weight=RECENT_AGENT_PROBABILITY, old_weight=OLD_AGENT_PROBABILITY, pool_window=POOL_WINDOW):
     def make_agent():
         return ClankerClass(env_sizes[0], env_sizes[1], n_steps=n_steps, buffer_size=buffer_size)
 
@@ -53,24 +55,37 @@ def train_agent(environment, env_sizes, ClankerClass, initial_agent_path, save_p
         agent.epsilon = 0.0
         agent_pool.append(agent)
 
+    def build_sampling(pool):
+        recent = pool[-pool_window:] if pool else []
+        old = pool[:-pool_window] if len(pool) > pool_window else []
+        population = ['random', 'previous']
+        weights = [random_weight, previous_weight]
+        if recent:
+            population.append('recent')
+            weights.append(recent_weight)
+        if old:
+            population.append('old')
+            weights.append(old_weight)
+        return population, weights, recent, old
+
+    population, weights, recent_pool, old_pool = build_sampling(agent_pool)
+
     episode_count = 0
     total_episodes = 0
     best_win_rate = 0.0
     generation = starting_generation
     while episode_count < EPISODE_BUDGET:
         for _ in tqdm(range(min(eval_freq, EPISODE_BUDGET - episode_count)), desc=f"Gen {generation} | Episode {episode_count}/{EPISODE_BUDGET}"):
-            opponent_choice = random.choices(
-                population=['random', 'previous', 'pool'],
-                weights=[random_weight, previous_weight, pool_weight],
-                k=1
-            )[0]
+            opponent_choice = random.choices(population=population, weights=weights, k=1)[0]
 
             if opponent_choice == 'random':
                 opponent = None
             elif opponent_choice == 'previous':
                 opponent = prev_agent
+            elif opponent_choice == 'recent':
+                opponent = random.choice(recent_pool)
             else:
-                opponent = random.choice(agent_pool) if agent_pool else None
+                opponent = random.choice(old_pool)
 
             current_agent.train(environment, episodes=1, opponent=opponent, load_bar=False)
             episode_count += 1
@@ -89,6 +104,7 @@ def train_agent(environment, env_sizes, ClankerClass, initial_agent_path, save_p
             pool_agent.load(prev_agent_path)
             pool_agent.epsilon = 0.0
             agent_pool.append(pool_agent)
+            population, weights, recent_pool, old_pool = build_sampling(agent_pool)
 
             prev_agent_path = f"{save_path}_{generation}.pth"
             prev_agent.load(prev_agent_path)
@@ -121,7 +137,7 @@ def get_latest_and_pool(game, arch):
     arch_agents = [a for a in agents if a[0] == arch]
     if not arch_agents:
         return None, None, [], 1
-    latest_arch, latest_gen, initial_path = arch_agents[-1]
+    _, latest_gen, initial_path = arch_agents[-1]
     pool_paths = [a[2] for a in arch_agents[:-1]]
     save_path = os.path.join(GENERATIONAL_AGENTS_DIR, f"{game}_a{arch}")
     starting_generation = max(1, int(latest_gen) + 1)
@@ -158,18 +174,23 @@ def main():
         print(f"No agents found for '{game}' architecture {arch}.")
         return
 
-    print(f"\nDefault pool weights — random: {RANDOM_AGENT_PROBABILITY}, previous: {PREVIOUS_AGENT_PROBABILITY}, pool: {OTHER_AGENT_PROBABILITY}")
+    print(f"\nDefault pool weights — random: {RANDOM_AGENT_PROBABILITY}, previous: {PREVIOUS_AGENT_PROBABILITY}, recent: {RECENT_AGENT_PROBABILITY}, old: {OLD_AGENT_PROBABILITY}")
+    print(f"Default pool window (recent N gens): {POOL_WINDOW}")
     use_defaults = input("Use default weights? (y/n): ").strip().lower()
     if use_defaults == "y":
         random_weight = RANDOM_AGENT_PROBABILITY
         previous_weight = PREVIOUS_AGENT_PROBABILITY
-        pool_weight = OTHER_AGENT_PROBABILITY
+        recent_weight = RECENT_AGENT_PROBABILITY
+        old_weight = OLD_AGENT_PROBABILITY
+        pool_window = POOL_WINDOW
     else:
         while True:
             try:
                 random_weight = float(input("Random weight: ").strip())
                 previous_weight = float(input("Previous agent weight: ").strip())
-                pool_weight = float(input("Pool weight: ").strip())
+                recent_weight = float(input("Recent pool weight: ").strip())
+                old_weight = float(input("Old pool weight: ").strip())
+                pool_window = int(input(f"Pool window — number of recent gens (default {POOL_WINDOW}): ").strip() or POOL_WINDOW)
                 break
             except ValueError:
                 print("Enter numbers.")
@@ -179,7 +200,8 @@ def main():
     print(f"Initial agent:    {initial_path}")
     print(f"Starting gen:     {starting_generation}")
     print(f"Pool:             {pool_paths if pool_paths else 'empty (no prior checkpoints)'}")
-    print(f"Weights:          random={random_weight}, previous={previous_weight}, pool={pool_weight}")
+    print(f"Weights:          random={random_weight}, previous={previous_weight}, recent={recent_weight}, old={old_weight}")
+    print(f"Pool window:      {pool_window}")
     print(f"Save path:        {save_path}_{{generation}}.pth\n")
 
     config = GAMES[game]
@@ -187,7 +209,8 @@ def main():
     train_agent(environment, config["sizes"], DeepClanker, initial_path, save_path, pool_paths,
                 n_steps=config.get("n_steps", 1), buffer_size=config.get("buffer_size", 100000),
                 starting_generation=starting_generation, random_weight=random_weight,
-                previous_weight=previous_weight, pool_weight=pool_weight)
+                previous_weight=previous_weight, recent_weight=recent_weight,
+                old_weight=old_weight, pool_window=pool_window)
 
 if __name__ == "__main__":
     main()
