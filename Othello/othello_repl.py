@@ -41,10 +41,10 @@ def human_vs_human():
 
         env.render()
         if reward == 1:
+            print(f"Player {current_player} wins!")
+        elif reward == -1:
             winner = 2 if current_player == 1 else 1
             print(f"Player {winner} wins!")
-        elif reward == -1:
-            print(f"Player {current_player} wins!")
         else:
             print("It's a draw!")
 
@@ -55,7 +55,7 @@ def human_vs_human():
 def human_vs_ai():
     env = OthelloEnvironment()
     agent = DeepClanker(env.board_size ** 2, env.board_size ** 2)
-    agent.load("Othello/stashed_models/othello_deep.pth")
+    agent.load("generational_agents/othello_a1_16.pth")
     agent.epsilon = 0.0
     playing = True
 
@@ -88,12 +88,12 @@ def human_vs_ai():
 
         env.render()
         if reward == 1:
-            if current_player == 2:
+            if current_player == 1:
                 print("Congratulations! You win!")
             else:
                 print("AI wins! Better luck next time.")
         elif reward == -1:
-            if current_player == 1:
+            if current_player == 2:
                 print("Congratulations! You win!")
             else:
                 print("AI wins! Better luck next time.")

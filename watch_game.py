@@ -96,7 +96,7 @@ def main():
             print("Quit.")
             return
 
-        if game == "mancala":
+        if game in ("mancala", "othello"):
             saved = env.current_player
             env.current_player = 1
             env.render()

@@ -22,6 +22,11 @@ OLD_AGENT_PROBABILITY = 0.22
 POOL_WINDOW = 5
 EPISODE_BUDGET = 100000
 
+STALL_WINDOW = 5
+STALL_WIN_THRESHOLD = 0.25
+STALL_EPSILON_THRESHOLD = 0.03
+STALL_RESET_EPSILON = 0.6
+
 GENERATIONAL_AGENTS_DIR = "generational_agents"
 GAMES = {
     "backgammon":        {"env": BackgammonEnvironment,       "sizes": (56, 650),  "n_steps": 5},
@@ -74,7 +79,12 @@ def train_agent(environment, env_sizes, ClankerClass, initial_agent_path, save_p
     total_episodes = 0
     best_win_rate = 0.0
     generation = starting_generation
+    recent_win_rates = []
     while episode_count < EPISODE_BUDGET:
+        checkpoint_path = f"{save_path}_{generation}.pth"
+        if episode_count == 0:
+            current_agent.save(checkpoint_path)
+
         for _ in tqdm(range(min(eval_freq, EPISODE_BUDGET - episode_count)), desc=f"Gen {generation} | Episode {episode_count}/{EPISODE_BUDGET}"):
             opponent_choice = random.choices(population=population, weights=weights, k=1)[0]
 
@@ -93,11 +103,22 @@ def train_agent(environment, env_sizes, ClankerClass, initial_agent_path, save_p
         counts = current_agent.evaluate(environment, opponent=prev_agent, episodes=EVAL_EPISODES, verbose=False)
         win_rate = counts['wins'] / EVAL_EPISODES
         best_win_rate = max(best_win_rate, win_rate)
+        current_agent.save(checkpoint_path)
         print(f"Win rate: {win_rate:.2%}, Loss rate: {counts['losses'] / EVAL_EPISODES:.2%}, Draw rate: {counts['draws'] / EVAL_EPISODES:.2%}")
+
+        recent_win_rates.append(win_rate)
+        if len(recent_win_rates) > STALL_WINDOW:
+            recent_win_rates.pop(0)
+        avg_win_rate = sum(recent_win_rates) / len(recent_win_rates)
+        if len(recent_win_rates) >= STALL_WINDOW and avg_win_rate < STALL_WIN_THRESHOLD and current_agent.epsilon < STALL_EPSILON_THRESHOLD:
+            remaining = EPISODE_BUDGET - episode_count
+            current_agent.epsilon = STALL_RESET_EPSILON
+            current_agent.epsilon_decay = (current_agent.epsilon_min / STALL_RESET_EPSILON) ** (1 / max(1, int(0.8 * remaining)))
+            recent_win_rates.clear()
+            print(f"Stall detected (avg win rate {avg_win_rate:.2%} over last {STALL_WINDOW} evals) — epsilon reset to {STALL_RESET_EPSILON:.1f}, decaying over {int(0.8 * remaining)} episodes.")
 
         if win_rate >= WIN_RATE_THRESHOLD:
             print(f"New agent saved with win rate {win_rate:.2%}")
-            current_agent.save(f"{save_path}_{generation}.pth")
             current_agent.epsilon = 0.1
 
             pool_agent = make_agent()
@@ -112,6 +133,7 @@ def train_agent(environment, env_sizes, ClankerClass, initial_agent_path, save_p
             total_episodes += episode_count
             episode_count = 0
             best_win_rate = 0.0
+            recent_win_rates.clear()
 
     total_episodes += episode_count
     if generation == 1:

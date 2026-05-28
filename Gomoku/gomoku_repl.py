@@ -51,7 +51,7 @@ def human_vs_human():
 def human_vs_ai():
     env = GomokuEnvironment()
     agent = DeepClanker(env.board_size ** 2, env.board_size ** 2)
-    agent.load("generational_agents/gomoku_a1_35.pth")
+    agent.load("generational_agents/gomoku_a1_45.pth")
     agent.epsilon = 0.0
     playing = True
 
