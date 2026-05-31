@@ -19,6 +19,8 @@ def main():
                         help="Only evaluate the N most recent agents")
     parser.add_argument("--episodes", type=int, default=200, metavar="N",
                         help="Games per matchup (default: 200)")
+    parser.add_argument("--include-latest", action="store_true",
+                        help="Include the latest (still-training) agent (excluded by default)")
     args = parser.parse_args()
     eval_episodes = args.episodes
 
@@ -35,6 +37,9 @@ def main():
     if not agents_meta:
         print(f"No agents found for '{game}'.")
         return
+
+    if not args.include_latest:
+        agents_meta = agents_meta[:-1]
 
     if args.last is not None:
         agents_meta = agents_meta[-args.last:]

@@ -55,7 +55,7 @@ def human_vs_human():
 def human_vs_ai():
     env = OthelloEnvironment()
     agent = DeepClanker(env.board_size ** 2, env.board_size ** 2)
-    agent.load("generational_agents/othello_a1_16.pth")
+    agent.load("generational_agents/othello_a2_6.pth")
     agent.epsilon = 0.0
     playing = True
 
