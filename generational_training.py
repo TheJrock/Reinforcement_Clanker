@@ -32,18 +32,18 @@ SECONDARY_WIN_THRESHOLD = 0.45
 
 GENERATIONAL_AGENTS_DIR = "generational_agents"
 GAMES = {
-    "backgammon":        {"env": BackgammonEnvironment,       "sizes": (56, 650),  "n_steps": 5},
+    "backgammon":        {"env": BackgammonEnvironment,       "sizes": (56, 650),  "n_steps": 5, "loss": "huber", "grad_clip": 10.0},
     "checkers":          {"env": CheckersEnvironment,         "sizes": (33, 1024), "n_steps": 5},
     "connect_four":      {"env": ConnectFourEnvironment,      "sizes": (42, 7),    "n_steps": 1},
     "gomoku":            {"env": GomokuEnvironment,           "sizes": (225, 225), "n_steps": 1},
-    "mancala":           {"env": MancalaEnvironment,          "sizes": (14, 6),    "n_steps": 1},
+    "mancala":           {"env": MancalaEnvironment,          "sizes": (14, 6),    "n_steps": 1, "loss": "huber", "grad_clip": 10.0},
     "othello":           {"env": OthelloEnvironment,          "sizes": (64, 64),   "n_steps": 3},
     "ultimate_tictactoe": {"env": UltimateTicTacToeEnvironment, "sizes": (91, 81), "n_steps": 5, "buffer_size": 500000},
 }
 
-def train_agent(environment, env_sizes, ClankerClass, initial_agent_path, save_path, agent_path_pool=None, eval_freq=EVAL_FREQUENCY, n_steps=1, buffer_size=100000, starting_generation=1, random_weight=RANDOM_AGENT_PROBABILITY, previous_weight=PREVIOUS_AGENT_PROBABILITY, recent_weight=RECENT_AGENT_PROBABILITY, old_weight=OLD_AGENT_PROBABILITY, pool_window=POOL_WINDOW):
+def train_agent(environment, env_sizes, ClankerClass, initial_agent_path, save_path, agent_path_pool=None, eval_freq=EVAL_FREQUENCY, n_steps=1, buffer_size=100000, starting_generation=1, random_weight=RANDOM_AGENT_PROBABILITY, previous_weight=PREVIOUS_AGENT_PROBABILITY, recent_weight=RECENT_AGENT_PROBABILITY, old_weight=OLD_AGENT_PROBABILITY, pool_window=POOL_WINDOW, loss="mse", grad_clip=None):
     def make_agent():
-        return ClankerClass(env_sizes[0], env_sizes[1], n_steps=n_steps, buffer_size=buffer_size)
+        return ClankerClass(env_sizes[0], env_sizes[1], n_steps=n_steps, buffer_size=buffer_size, loss=loss, grad_clip=grad_clip)
 
     current_agent = make_agent()
     current_agent.load(initial_agent_path)
@@ -250,7 +250,8 @@ def main():
                 n_steps=config.get("n_steps", 1), buffer_size=config.get("buffer_size", 100000),
                 starting_generation=starting_generation, random_weight=random_weight,
                 previous_weight=previous_weight, recent_weight=recent_weight,
-                old_weight=old_weight, pool_window=pool_window)
+                old_weight=old_weight, pool_window=pool_window,
+                loss=config.get("loss", "mse"), grad_clip=config.get("grad_clip", None))
 
 if __name__ == "__main__":
     main()

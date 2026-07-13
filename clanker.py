@@ -29,7 +29,7 @@ class Clanker(ABC):
         for episode in tqdm(range(episodes), disable=not load_bar):
             reward, agent_player = self.play(environment, learning=False, opponent=opponent, verbose=verbose)
 
-            if reward == 0:
+            if abs(reward) < 1:
                 counts["draws"] += 1
             else:
                 agent_won = (environment.current_player == agent_player) == (reward == 1)
@@ -133,6 +133,11 @@ class TableClanker(Clanker):
         self.q_table = {tuple(int(x) for x in state[1:-1].split(', ')): {int(a): v for a, v in actions.items()} for state, actions in data.items()}
 
 class DeepClanker(Clanker):
+    LOSS_FUNCTIONS = {
+        "mse": nn.MSELoss,
+        "huber": nn.SmoothL1Loss,
+    }
+
     def __init__(self, input_size, output_size,
                  hidden_layers=[128, 128],
                  batch_size=32,
@@ -146,13 +151,18 @@ class DeepClanker(Clanker):
                  gpu_device=None,
                  buffer_size=100000,
                  activation="leaky_relu",
-                 n_steps=1):
+                 n_steps=1,
+                 loss="mse",
+                 grad_clip=None):
         super().__init__(epsilon, alpha, gamma, epsilon_min, epsilon_decay)
         self.network = HoloNet(input_size, output_size, hidden_layers, activation=activation)
         self.target_network = HoloNet(input_size, output_size, hidden_layers, activation=activation)
         self.target_network.load_state_dict(self.network.state_dict())
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=alpha)
-        self.loss_fn = nn.MSELoss()
+        if loss not in self.LOSS_FUNCTIONS:
+            raise ValueError(f"Unsupported loss: {loss}. Choose from {list(self.LOSS_FUNCTIONS)}")
+        self.loss_fn = self.LOSS_FUNCTIONS[loss]()
+        self.grad_clip = grad_clip
         self.replay_buffer = collections.deque(maxlen=buffer_size)
         self.steps = 0
         self.batch_size = batch_size
@@ -238,6 +248,8 @@ class DeepClanker(Clanker):
         loss = self.loss_fn(predicted_q, targets)
         self.optimizer.zero_grad()
         loss.backward()
+        if self.grad_clip is not None:
+            nn.utils.clip_grad_norm_(self.network.parameters(), self.grad_clip)
         self.optimizer.step()
         self.steps += 1
         if self.steps % self.update_freq == 0:

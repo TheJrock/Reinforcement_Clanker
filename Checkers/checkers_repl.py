@@ -54,7 +54,7 @@ def human_vs_human():
             _, reward, done = env.step(action)
 
         env.render()
-        if reward == 0:
+        if abs(reward) < 1:
             print("It's a draw!")
         else:
             winner = "Player 1" if acting_env_player == 1 else "Player 2"
@@ -92,7 +92,7 @@ def human_vs_ai():
             state, reward, done = env.step(action)
 
         env.render()
-        if reward == 0:
+        if abs(reward) < 1:
             print("It's a draw!")
         elif acting_env_player == human_env_player:
             print("Congratulations! You win!")

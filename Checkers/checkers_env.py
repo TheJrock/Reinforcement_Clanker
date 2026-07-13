@@ -64,7 +64,7 @@ class CheckersEnvironment(GeneralEnvironment):
         else:
             self.stale_counter += 1
             if self.stale_counter >= 40:
-                return self._to_agent_state(), 0, True
+                return self._to_agent_state(), -0.3, True
         self.board[end_index] = 2 if is_promotion else self.board[start_index]
         self.board[start_index] = 0
         if not is_capture:

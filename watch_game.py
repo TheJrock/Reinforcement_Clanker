@@ -104,7 +104,7 @@ def main():
         else:
             env.render()
 
-    if reward == 0:
+    if abs(reward) < 1:
         print("\nResult: Draw")
     else:
         winner_side = env.current_player if reward == 1 else -env.current_player
