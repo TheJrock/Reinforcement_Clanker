@@ -1,7 +1,7 @@
 [project]
 name = "reinforcement-clanker"
 version = "0.1.0"
-description = "Add your description here"
+description = "Deep Q-learning agents that teach themselves board games through generational self-play"
 requires-python = ">=3.13"
 dependencies = [
     "numpy>=2.4.4",
